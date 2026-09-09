@@ -1,12 +1,10 @@
 # Web Lead Automation
 
-Yerel işletmeler arasından **web sitesi olmayan veya dijital varlığı zayıf potansiyel müşterileri bulmak**, önceliklendirmek ve satış sürecini takip etmek için geliştirilen yarı otomatik lead-generation aracı.
+Yerel işletmeler arasından **web sitesi olmayan veya dijital varlığı zayıf potansiyel müşterileri bulmak**, önceliklendirmek, AI ile hızlı demo web sitesi hazırlamak ve satış sürecini takip etmek için geliştirilen yarı otomatik bir araç.
 
-Bu projenin ilk hedefi kusursuz bir SaaS geliştirmek değil; **olabildiğince hızlı şekilde gerçek müşteri adayları bulup web sitesi satmaya başlamaktır.**
+Bu projenin amacı kusursuz bir SaaS geliştirmek değil; **olabildiğince hızlı şekilde gerçek müşteri adayları bulup web sitesi satmaya başlamaktır.**
 
-## Hedef
-
-İlk MVP aşağıdaki akışı mümkün olduğunca kısa sürede çalışır hale getirecek:
+## MVP Akışı
 
 ```text
 Bölge + sektör seç
@@ -21,31 +19,32 @@ En iyi adayları göster
         ↓
 CRM durumunu kaydet
         ↓
-WhatsApp / arama için satış metni hazırla
+AI ile kişiselleştirilmiş demo site oluştur
+        ↓
+Paylaşılabilir preview al
+        ↓
+Demo linkli satış mesajı hazırla
         ↓
 İletişime geç ve sonucu takip et
 ```
 
-Örnek kullanım:
-
-- Bölge: `Gemlik, Bursa`
-- Sektör: `Kuaför`
-- Sonuç: Web sitesi bulunmayan ve iletişim bilgisi olan işletmeler
-- Öncelik: Yorum sayısı, puan, telefon bilgisi ve dijital görünürlüğe göre lead score
+Başlangıç bölgesi: **Gemlik → Bursa → yakın ilçeler**.
 
 ## MVP Kapsamı
 
-MVP tamamlandığında kullanıcı şunları yapabilmeli:
+MVP tamamlandığında kullanıcı:
 
-- Bölge ve sektör girerek işletme arayabilmeli.
-- Web sitesi bulunan / bulunmayan işletmeleri ayırabilmeli.
-- Potansiyel müşterileri otomatik puanlayabilmeli.
-- En değerli lead'leri sıralayabilmeli.
-- Lead durumunu takip edebilmeli.
-- Lead'e özel kısa satış mesajı oluşturabilmeli.
-- Daha önce işlenen işletmelerin tekrar tekrar karşısına çıkmasını engelleyebilmeli.
+- Bölge ve sektör girerek işletme arayabilecek.
+- Web sitesi bulunan / bulunmayan işletmeleri ayırabilecek.
+- Potansiyel müşterileri otomatik puanlayabilecek.
+- En değerli lead'leri sıralayabilecek.
+- Lead durumunu ve notlarını takip edebilecek.
+- Seçilen lead için AI destekli tek sayfalık demo site oluşturabilecek.
+- Demo için paylaşılabilir preview alabilecek.
+- Demo linkli kişiselleştirilmiş satış mesajı oluşturabilecek.
+- Daha önce işlenen işletmelerin tekrar tekrar karşısına çıkmasını engelleyebilecek.
 
-### İlk CRM durumları
+İlk CRM durumları:
 
 ```text
 NEW
@@ -55,53 +54,37 @@ WON
 LOST
 ```
 
-## MVP Dışında Tutulanlar
-
-İlk satışları geciktirecek aşağıdaki özellikler MVP sonrasına bırakılacaktır:
-
-- Tam kapsamlı SaaS mimarisi
-- Kullanıcı üyelik sistemi
-- Çoklu organizasyon / tenant desteği
-- Ödeme altyapısı
-- Karmaşık rol ve yetki sistemi
-- Tam otonom WhatsApp / e-posta gönderimi
-- Gelişmiş AI agent orkestrasyonu
-- MCP entegrasyonlarının tamamı
-- Otomatik production site deployment sistemi
-- Mobil uygulama
-
-Öncelik: **önce lead bulmak ve satış yapmak.**
-
-## Planlanan MVP Teknolojileri
+## Teknoloji
 
 | Katman | Teknoloji |
 |---|---|
-| Dil | Python 3.12+ |
+| Dil | Python 3.11+ |
 | Arayüz | Streamlit |
 | Veri | SQLite |
 | İşletme keşfi | Google Places API (New) |
 | HTTP | httpx |
-| Konfigürasyon | python-dotenv / pydantic-settings |
+| Konfigürasyon | pydantic-settings |
 | Test | pytest |
+| CI | GitHub Actions |
 
-Bu teknoloji seti, local bilgisayarda hızlı geliştirilebilen ve hızlı kullanılmaya başlanabilen bir MVP için seçilmiştir. Ürün doğrulandıktan sonra gerektiğinde ayrı API, PostgreSQL ve web frontend mimarisine geçilebilir.
+MVP doğrulandıktan sonra ihtiyaç oluşursa ayrı API, PostgreSQL veya daha gelişmiş frontend mimarisine geçilebilir.
 
-## Önerilen Proje Yapısı
+## Mevcut Proje Yapısı
 
 ```text
 web-lead-automation/
-├── app/
-│   ├── main.py
-│   ├── config.py
-│   ├── database.py
-│   ├── models.py
-│   ├── repositories/
-│   ├── services/
-│   │   ├── places.py
-│   │   ├── scoring.py
-│   │   └── outreach.py
-│   └── ui/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── src/
+│   └── web_lead_automation/
+│       ├── __init__.py
+│       ├── __main__.py
+│       ├── config.py
+│       └── logging_config.py
 ├── tests/
+│   ├── test_config.py
+│   └── test_logging_config.py
 ├── .env.example
 ├── .gitignore
 ├── pyproject.toml
@@ -109,11 +92,59 @@ web-lead-automation/
 └── ROADMAP.md
 ```
 
+Yapı geliştirme ilerledikçe servis, veri ve UI katmanlarıyla genişletilecektir.
+
+## Kurulum
+
+Windows PowerShell:
+
+```powershell
+git clone https://github.com/hilmiguner/web-lead-automation.git
+cd web-lead-automation
+
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
+
+Copy-Item .env.example .env
+```
+
+Foundation smoke test:
+
+```powershell
+python -m web_lead_automation
+```
+
+Testler:
+
+```powershell
+pytest
+```
+
+Beklenen test sonucu foundation aşamasında:
+
+```text
+4 passed
+```
+
+## Environment
+
+`.env.example` dosyası local `.env` dosyasına kopyalanır.
+
+```env
+APP_ENV=development
+LOG_LEVEL=INFO
+GOOGLE_PLACES_API_KEY=
+LEAD_DB_PATH=data/leads.sqlite3
+```
+
+Gerçek API anahtarları ve secret değerler GitHub'a commit edilmemelidir.
+
 ## Lead Scoring
 
-İlk sürümde basit ve açıklanabilir bir puanlama kullanılacaktır.
-
-Örnek sinyaller:
+İlk sürümde basit ve açıklanabilir bir puanlama kullanılacaktır. Örnek sinyaller:
 
 - Web sitesi bulunmuyor
 - Telefon numarası mevcut
@@ -123,46 +154,40 @@ web-lead-automation/
 - Seçilen sektör satış açısından değerli
 - Daha önce iletişime geçilmemiş
 
-Puanlama ileride gerçek satış sonuçlarına göre güncellenecektir. Amaç teorik olarak mükemmel skor değil, **hangi işletmenin önce aranması gerektiğini söyleyen pratik bir sıralama** üretmektir.
+Puanlama gerçek satış sonuçlarına göre güncellenecektir. Amaç teorik olarak mükemmel skor değil, **hangi işletmenin önce aranması gerektiğini söyleyen pratik bir sıralama** üretmektir.
+
+## AI Demo Website Yaklaşımı
+
+MVP'de AI'ın her lead için sıfırdan serbest biçimde uygulama kodu yazması hedeflenmez. Daha hızlı ve güvenilir yöntem kullanılacaktır:
+
+```text
+Lead verisi
+   ↓
+AI içerik + tema önerisi
+   ↓
+Test edilmiş landing page template
+   ↓
+Kişiselleştirilmiş demo
+   ↓
+Preview linki
+```
+
+AI, doğrulanmamış işletme bilgilerini gerçekmiş gibi üretmemelidir. İlk hedef, bir lead için **5 dakikanın altında insan müdahalesiyle** satışta kullanılabilecek demo hazırlamaktır.
 
 ## Veri Kullanımı
 
-Google Places gibi harici veri kaynaklarının kullanım ve saklama koşulları dikkate alınacaktır. Kalıcı CRM verisi mümkün olduğunca bizim ürettiğimiz satış bilgileriyle sınırlı tutulacaktır:
+Harici veri kaynaklarının kullanım ve saklama koşulları dikkate alınacaktır. Kalıcı CRM verisi mümkün olduğunca bizim ürettiğimiz satış bilgileriyle sınırlı tutulacaktır:
 
 - Harici işletme kimliği
 - Lead durumu
 - Kullanıcı notları
 - İletişim geçmişi
-- Lead score ve bizim ürettiğimiz metadata
-
-API anahtarları veya diğer secret değerler GitHub reposuna commit edilmemelidir.
-
-## Hızlı Başlangıç
-
-Proje kodu oluşturulduktan sonra hedef kullanım şekli:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-Copy-Item .env.example .env
-streamlit run app/main.py
-```
-
-`.env` örneği:
-
-```env
-GOOGLE_PLACES_API_KEY=your_api_key_here
-DATABASE_PATH=data/leads.db
-```
-
-> Not: Bu komutlar MVP implementasyonu ilerledikçe doğrulanıp güncellenecektir.
+- Lead score ve uygulamanın ürettiği metadata
+- Demo bağlantısı
 
 ## İlk Satış Modeli
 
-Başlangıç hedefi, web sitesi olmayan küçük işletmelere hızlı hazırlanabilen bir web sitesi paketi sunmaktır.
-
-Örnek başlangıç teklifi:
+Başlangıç teklifi yaklaşık **4.990–5.000 TL** seviyesinde test edilebilir:
 
 - Tek sayfalık modern web sitesi
 - Mobil uyumlu tasarım
@@ -172,22 +197,33 @@ Başlangıç hedefi, web sitesi olmayan küçük işletmelere hızlı hazırlana
 - Temel SEO
 - Yayına alma
 
-Başlangıç satış fiyatı yaklaşık **4.990–5.000 TL** olarak test edilebilir. Gerçek satışlardan sonra fiyat ve paketler yeniden değerlendirilecektir.
+Gerçek satış sonuçlarından sonra fiyat ve paketler yeniden değerlendirilecektir.
+
+## MVP Dışında Tutulanlar
+
+İlk satışları geciktirecek özellikler ihtiyaç oluşana kadar ertelenir:
+
+- Tam kapsamlı SaaS mimarisi
+- Kullanıcı üyelik sistemi
+- Multi-tenancy / RBAC
+- Ödeme altyapısı
+- PostgreSQL migration
+- Mikroservisler
+- Kubernetes
+- Mobil uygulama
+- Tam otonom WhatsApp / e-posta gönderimi
+- Gelişmiş multi-agent orkestrasyonu
 
 ## Başarı Kriteri
 
-MVP'nin başarı kriteri kod miktarı değildir.
+MVP'nin başarı kriteri kod miktarı değildir. Sistem:
 
-İlk hedefler:
+1. Gerçek işletmeleri bulabilmeli.
+2. Web sitesi olmayan lead'leri ayıklayabilmeli.
+3. Her gün aranabilecek kaliteli bir lead listesi çıkarabilmeli.
+4. Lead durumlarını takip edebilmeli.
+5. Lead için hızlı demo hazırlayabilmeli.
+6. Demo linkli satış mesajı oluşturabilmeli.
+7. İlk ücretli müşterinin kazanılmasına yardımcı olabilmeli.
 
-1. Uygulama gerçek işletmeleri bulabiliyor.
-2. Web sitesi olmayan lead'leri ayıklayabiliyor.
-3. Kullanıcı her gün aranabilecek kaliteli bir lead listesi çıkarabiliyor.
-4. Lead'lerin durumu takip edilebiliyor.
-5. Sistem kullanılarak ilk ücretli müşteri kazanılabiliyor.
-
-İlk müşteri kazanılmadan önce gereksiz platform özellikleri geliştirilmemelidir.
-
-## Roadmap
-
-Geliştirme sırası ve MVP sınırı için [ROADMAP.md](ROADMAP.md) dosyasına bakın.
+Geliştirme sırası ve MVP stop point için [ROADMAP.md](ROADMAP.md) dosyasına bakın.
