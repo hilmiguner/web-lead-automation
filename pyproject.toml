@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "web-lead-automation"
+version = "0.1.0"
+description = "Local business lead generation and AI website demo automation."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Hilmi Guner" }
+]
+dependencies = [
+  "pydantic-settings>=2.6,<3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9.0",
+  "pytest-cov>=6.0,<7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["web_lead_automation"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
