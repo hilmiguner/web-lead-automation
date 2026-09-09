@@ -82,6 +82,7 @@ def render_demo_html(context: DemoTemplateContext) -> str:
         "seo_title": escape(seo_title),
         "seo_description": escape(seo_description, quote=True),
         "business_name": escape(business_name),
+        "brand_initial": escape(_brand_initial(business_name)),
         "sector": escape(sector),
         "hero_title": escape(hero_title),
         "hero_text": escape(hero_text),
@@ -119,6 +120,10 @@ def _required(value: str, field_name: str) -> str:
     if not normalized:
         raise ValueError(f"{field_name} must not be empty.")
     return normalized
+
+
+def _brand_initial(business_name: str) -> str:
+    return business_name[0].upper()
 
 
 def _phone_digits(value: str) -> str:
