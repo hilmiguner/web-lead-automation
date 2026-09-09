@@ -58,6 +58,13 @@ def render_demo_html(context: DemoTemplateContext) -> str:
         .joinpath("default.html")
         .read_text(encoding="utf-8")
     )
+    # Keep the reusable template readable while rendering a compact monogram
+    # inside the fixed-size brand mark for long business names.
+    template_text = template_text.replace(
+        '<span class="brand-mark">$business_name</span>',
+        '<span class="brand-mark">$brand_initial</span>',
+        1,
+    )
 
     phone_display = (context.phone_number or "").strip()
     phone_digits = _phone_digits(phone_display)
