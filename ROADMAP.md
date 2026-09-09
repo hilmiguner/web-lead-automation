@@ -269,11 +269,11 @@ Bu aşamada **otomatik spam gönderimi yapılmayacak**. Sistem kullanıcıya hı
 
 ## M5.1 — Satış mesajı üretimi
 
-- [ ] İşletme adına özel WhatsApp metni
-- [ ] Hazırlanan demo linkini mesaja ekleme seçeneği
-- [ ] Kısa telefon görüşmesi açılışı
-- [ ] Alternatif mesaj şablonları
-- [ ] Mesajı tek tıkla kopyalama
+- [x] İşletme adına özel WhatsApp metni
+- [x] Hazırlanan demo linkini mesaja ekleme seçeneği
+- [x] Kısa telefon görüşmesi açılışı
+- [x] Alternatif mesaj şablonları
+- [x] Mesajı tek tıkla kopyalama
 
 Örnek yaklaşım:
 
