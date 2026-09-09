@@ -16,10 +16,8 @@ from web_lead_automation.services.lead_history import (
     LeadSearchWithHistoryResult,
     LeadWithHistory,
 )
-from web_lead_automation.services.places import (
-    GooglePlacesClient,
-    GooglePlacesError,
-)
+from web_lead_automation.services.places import GooglePlacesClient, GooglePlacesError
+from web_lead_automation.services.website_filter import WebsiteStatus
 from web_lead_automation.storage.crm import LeadRepository, LeadStatus, TrackedLead
 
 
@@ -95,6 +93,36 @@ def lead_rows(leads: Iterable[LeadWithHistory]) -> list[dict[str, object]]:
             }
         )
     return rows
+
+
+def filter_leads(
+    leads: Iterable[LeadWithHistory],
+    *,
+    website_only: bool = True,
+    min_score: int = 0,
+    phone_only: bool = False,
+    statuses: Iterable[LeadStatus] | None = None,
+) -> tuple[LeadWithHistory, ...]:
+    """Apply dashboard filters without triggering another Places API request."""
+
+    if not 0 <= min_score <= 100:
+        raise ValueError("min_score must be between 0 and 100.")
+
+    status_filter = set(LeadStatus if statuses is None else statuses)
+    filtered: list[LeadWithHistory] = []
+
+    for item in leads:
+        if website_only and item.lead.website_status is not WebsiteStatus.NO_WEBSITE_LISTED:
+            continue
+        if item.lead.score < min_score:
+            continue
+        if phone_only and not (item.lead.place.national_phone_number or "").strip():
+            continue
+        if item.status not in status_filter:
+            continue
+        filtered.append(item)
+
+    return tuple(filtered)
 
 
 def lead_detail_label(item: LeadWithHistory) -> str:
@@ -232,9 +260,7 @@ def run_dashboard() -> None:
                         location=location,
                         page_size=page_size,
                     )
-                result = LeadHistoryService(repository).record_search_result(
-                    search_result
-                )
+                result = LeadHistoryService(repository).record_search_result(search_result)
         except (GooglePlacesError, ValueError) as exc:
             st.error(str(exc))
             return
@@ -256,32 +282,83 @@ def run_dashboard() -> None:
         st.info("Başlamak için bölge ve sektör seçip **Lead Ara** butonuna bas.")
         return
 
-    _render_search_results(result)
-    _render_lead_detail(result, repository)
+    visible_leads = _render_filters(result.leads)
+    _render_search_results(result, visible_leads)
+
+    if not visible_leads:
+        st.warning("Seçili filtrelere uyan lead bulunamadı.")
+        return
+
+    _render_lead_detail(result, visible_leads, repository)
 
 
-def _render_search_results(result: LeadSearchWithHistoryResult) -> None:
-    st.success(f"{len(result.leads)} uygun lead bulundu.")
+def _render_filters(
+    leads: tuple[LeadWithHistory, ...],
+) -> tuple[LeadWithHistory, ...]:
+    st.markdown("#### Hızlı filtreler")
 
-    rows = lead_rows(result.leads)
-    st.dataframe(
-        rows,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Skor": st.column_config.NumberColumn(
-                "Skor",
-                min_value=0,
-                max_value=100,
-            ),
-            "Rating": st.column_config.NumberColumn("Rating", format="%.1f"),
-            "Google Maps": st.column_config.LinkColumn(
-                "Google Maps",
-                display_text="Aç",
-            ),
-            "Place ID": None,
-        },
+    website_col, score_col, phone_col, status_col = st.columns(4)
+    with website_col:
+        website_only = st.checkbox(
+            "Sadece websitesiz",
+            value=True,
+            help="MVP Lead Finder zaten websitesiz işletmelere odaklanır.",
+        )
+    with score_col:
+        min_score = st.slider(
+            "Minimum skor",
+            min_value=0,
+            max_value=100,
+            value=0,
+            step=5,
+        )
+    with phone_col:
+        phone_only = st.checkbox("Sadece telefonu olanlar", value=False)
+    with status_col:
+        selected_status_values = st.multiselect(
+            "CRM durumu",
+            options=[status.value for status in LeadStatus],
+            default=[status.value for status in LeadStatus],
+        )
+
+    statuses = tuple(LeadStatus(value) for value in selected_status_values)
+    return filter_leads(
+        leads,
+        website_only=website_only,
+        min_score=min_score,
+        phone_only=phone_only,
+        statuses=statuses,
     )
+
+
+def _render_search_results(
+    result: LeadSearchWithHistoryResult,
+    visible_leads: tuple[LeadWithHistory, ...],
+) -> None:
+    st.success(
+        f"{len(visible_leads)} / {len(result.leads)} lead gösteriliyor."
+    )
+
+    if visible_leads:
+        rows = lead_rows(visible_leads)
+        st.dataframe(
+            rows,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Skor": st.column_config.NumberColumn(
+                    "Skor",
+                    min_value=0,
+                    max_value=100,
+                ),
+                "Rating": st.column_config.NumberColumn("Rating", format="%.1f"),
+                "Google Maps": st.column_config.LinkColumn(
+                    "Google Maps",
+                    display_text="Aç",
+                ),
+                "Place ID": None,
+            },
+        )
 
     if result.next_page_token:
         st.caption(
@@ -292,12 +369,13 @@ def _render_search_results(result: LeadSearchWithHistoryResult) -> None:
 
 def _render_lead_detail(
     result: LeadSearchWithHistoryResult,
+    visible_leads: tuple[LeadWithHistory, ...],
     repository: LeadRepository,
 ) -> None:
     st.divider()
     st.subheader("Lead detayı")
 
-    place_ids = [item.lead.place.place_id for item in result.leads]
+    place_ids = [item.lead.place.place_id for item in visible_leads]
     current_place_id = st.session_state.get(SELECTED_PLACE_SESSION_KEY)
     if current_place_id not in place_ids:
         current_place_id = place_ids[0]
@@ -309,12 +387,12 @@ def _render_lead_detail(
         options=place_ids,
         index=current_index,
         format_func=lambda place_id: lead_detail_label(
-            find_lead_by_place_id(result.leads, place_id)  # type: ignore[arg-type]
+            find_lead_by_place_id(visible_leads, place_id)  # type: ignore[arg-type]
         ),
     )
     st.session_state[SELECTED_PLACE_SESSION_KEY] = selected_place_id
 
-    selected = find_lead_by_place_id(result.leads, selected_place_id)
+    selected = find_lead_by_place_id(visible_leads, selected_place_id)
     if selected is None:
         st.error("Seçilen lead arama sonucunda bulunamadı.")
         return
