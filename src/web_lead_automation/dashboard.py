@@ -7,7 +7,14 @@ from typing import Iterable
 
 import streamlit as st
 
-from web_lead_automation.config import get_settings
+from web_lead_automation.config import Settings, get_settings
+from web_lead_automation.services.ai_content import (
+    AIContentError,
+    BusinessContentBrief,
+    DemoAIContent,
+    GeneratedService,
+    OpenAIContentClient,
+)
 from web_lead_automation.services.lead_finder import LeadFinder
 from web_lead_automation.services.lead_history import (
     CLOSED_STATUSES,
@@ -22,8 +29,10 @@ from web_lead_automation.storage.crm import LeadRepository, LeadStatus, TrackedL
 
 
 SEARCH_RESULT_SESSION_KEY = "lead_search_result"
+SEARCH_SECTOR_SESSION_KEY = "lead_search_sector"
 SELECTED_PLACE_SESSION_KEY = "selected_place_id"
 FLASH_SESSION_KEY = "crm_flash_message"
+AI_CONTENT_SESSION_PREFIX = "ai_content:"
 
 SECTOR_PRESETS = (
     "Kuaför / Berber",
@@ -69,6 +78,28 @@ def resolve_location_query(preset: str, custom_location: str) -> str:
     if preset == "Özel bölge yaz":
         return custom_location.strip()
     return preset.strip()
+
+
+def parse_known_services(raw_value: str) -> tuple[str, ...]:
+    """Parse user-confirmed services while preserving order and removing duplicates."""
+
+    normalized = raw_value.replace("\n", ",").replace(";", ",")
+    services: list[str] = []
+    seen: set[str] = set()
+    for value in normalized.split(","):
+        service = value.strip()
+        key = service.casefold()
+        if not service or key in seen:
+            continue
+        seen.add(key)
+        services.append(service)
+    return tuple(services)
+
+
+def ai_content_session_key(place_id: str) -> str:
+    """Return a stable per-lead session key for editable AI content."""
+
+    return f"{AI_CONTENT_SESSION_PREFIX}{place_id}"
 
 
 def lead_rows(leads: Iterable[LeadWithHistory]) -> list[dict[str, object]]:
@@ -267,6 +298,7 @@ def run_dashboard() -> None:
 
         if not result.leads:
             st.session_state.pop(SEARCH_RESULT_SESSION_KEY, None)
+            st.session_state.pop(SEARCH_SECTOR_SESSION_KEY, None)
             st.session_state.pop(SELECTED_PLACE_SESSION_KEY, None)
             st.warning(
                 "Bu sorguda Google Places'ta websitesi listelenmeyen "
@@ -275,6 +307,7 @@ def run_dashboard() -> None:
             return
 
         st.session_state[SEARCH_RESULT_SESSION_KEY] = result
+        st.session_state[SEARCH_SECTOR_SESSION_KEY] = sector
         st.session_state[SELECTED_PLACE_SESSION_KEY] = result.leads[0].lead.place.place_id
 
     result = st.session_state.get(SEARCH_RESULT_SESSION_KEY)
@@ -289,7 +322,7 @@ def run_dashboard() -> None:
         st.warning("Seçili filtrelere uyan lead bulunamadı.")
         return
 
-    _render_lead_detail(result, visible_leads, repository)
+    _render_lead_detail(result, visible_leads, repository, settings)
 
 
 def _render_filters(
@@ -335,9 +368,7 @@ def _render_search_results(
     result: LeadSearchWithHistoryResult,
     visible_leads: tuple[LeadWithHistory, ...],
 ) -> None:
-    st.success(
-        f"{len(visible_leads)} / {len(result.leads)} lead gösteriliyor."
-    )
+    st.success(f"{len(visible_leads)} / {len(result.leads)} lead gösteriliyor.")
 
     if visible_leads:
         rows = lead_rows(visible_leads)
@@ -371,6 +402,7 @@ def _render_lead_detail(
     result: LeadSearchWithHistoryResult,
     visible_leads: tuple[LeadWithHistory, ...],
     repository: LeadRepository,
+    settings: Settings,
 ) -> None:
     st.divider()
     st.subheader("Lead detayı")
@@ -436,6 +468,8 @@ def _render_lead_detail(
         for reason in selected.lead.reasons:
             st.write(f"- {reason.message}")
 
+    _render_ai_content_draft(selected, settings)
+
     st.markdown("#### CRM")
     with st.form(f"crm_form_{selected_place_id}"):
         status_values = [status.value for status in LeadStatus]
@@ -473,6 +507,154 @@ def _render_lead_detail(
             f"{place.display_name or 'Lead'} CRM kaydı güncellendi."
         )
         st.rerun()
+
+
+def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> None:
+    """Generate and edit AI copy without creating/deploying the website yet."""
+
+    place = selected.lead.place
+    place_id = place.place_id
+    content_key = ai_content_session_key(place_id)
+
+    st.divider()
+    st.subheader("AI demo içeriği")
+    st.caption(
+        "Bu aşama yalnızca düzenlenebilir içerik taslağı üretir. Site dosyası ve "
+        "preview oluşturma M4.4–M4.5 aşamalarında bağlanacak."
+    )
+
+    fallback_sector = (
+        place.types[0].replace("_", " ") if place.types else "yerel işletme"
+    )
+    sector = st.text_input(
+        "İçerik sektörü",
+        value=str(st.session_state.get(SEARCH_SECTOR_SESSION_KEY) or fallback_sector),
+        key=f"ai_sector_{place_id}",
+    )
+    known_services_raw = st.text_area(
+        "Doğrulanmış hizmetler (opsiyonel)",
+        placeholder="Örn. Saç kesimi, sakal tıraşı. Bilmiyorsan boş bırak.",
+        help=(
+            "Buraya yalnızca doğruladığın hizmetleri yaz. Boş bırakırsan AI belirli "
+            "bir hizmeti işletme sunuyormuş gibi iddia etmeyecek."
+        ),
+        key=f"ai_known_services_{place_id}",
+    )
+
+    if not settings.openai_api_key:
+        st.info(
+            "AI içerik üretmek için `.env` dosyasına `OPENAI_API_KEY=...` ekle. "
+            "Model `OPENAI_MODEL` ile değiştirilebilir."
+        )
+
+    generate_requested = st.button(
+        "AI İçerik Taslağı Üret",
+        key=f"generate_ai_content_{place_id}",
+        disabled=not bool(settings.openai_api_key),
+        use_container_width=True,
+    )
+
+    if generate_requested:
+        try:
+            with st.spinner("AI içerik taslağı hazırlanıyor..."):
+                with OpenAIContentClient(
+                    api_key=settings.openai_api_key,
+                    model=settings.openai_model,
+                    timeout_seconds=settings.openai_timeout_seconds,
+                ) as client:
+                    content = client.generate(
+                        BusinessContentBrief(
+                            business_name=place.display_name or place.place_id,
+                            sector=sector,
+                            address=place.formatted_address,
+                            known_services=parse_known_services(known_services_raw),
+                        )
+                    )
+            st.session_state[content_key] = content
+            st.success("AI içerik taslağı üretildi. Paylaşmadan önce kontrol et.")
+        except (AIContentError, ValueError) as exc:
+            st.error(str(exc))
+
+    content = st.session_state.get(content_key)
+    if not isinstance(content, DemoAIContent):
+        return
+
+    if content.content_notes:
+        with st.expander("AI kontrol notları", expanded=True):
+            for note in content.content_notes:
+                st.write(f"- {note}")
+
+    with st.form(f"ai_content_form_{place_id}"):
+        tone = st.text_input("Ton", value=content.tone)
+        hero_title = st.text_input("Hero başlığı", value=content.hero_title)
+        hero_text = st.text_area("Hero açıklaması", value=content.hero_text, height=100)
+        about_text = st.text_area("Hakkında", value=content.about_text, height=140)
+
+        st.markdown("**Hizmet / bilgi kartları**")
+        edited_services: list[GeneratedService] = []
+        service_values: list[tuple[str, str]] = []
+        for index, service in enumerate(content.services, start=1):
+            title = st.text_input(
+                f"Kart {index} başlığı",
+                value=service.title,
+                key=f"ai_service_title_{place_id}_{index}",
+            )
+            description = st.text_area(
+                f"Kart {index} açıklaması",
+                value=service.description,
+                height=90,
+                key=f"ai_service_desc_{place_id}_{index}",
+            )
+            service_values.append((title, description))
+
+        cta_left, cta_right = st.columns(2)
+        with cta_left:
+            primary_cta_text = st.text_input(
+                "Birincil CTA",
+                value=content.primary_cta_text,
+            )
+        with cta_right:
+            secondary_cta_text = st.text_input(
+                "İkincil CTA",
+                value=content.secondary_cta_text,
+            )
+
+        seo_title = st.text_input("SEO title", value=content.seo_title)
+        seo_description = st.text_area(
+            "SEO description",
+            value=content.seo_description,
+            height=90,
+        )
+        save_content = st.form_submit_button(
+            "İçerik Düzenlemelerini Kaydet",
+            use_container_width=True,
+        )
+
+    if save_content:
+        try:
+            edited_services = [
+                GeneratedService(title=title, description=description)
+                for title, description in service_values
+            ]
+            edited = DemoAIContent(
+                tone=tone,
+                hero_title=hero_title,
+                hero_text=hero_text,
+                about_text=about_text,
+                services=tuple(edited_services),
+                primary_cta_text=primary_cta_text,
+                secondary_cta_text=secondary_cta_text,
+                seo_title=seo_title,
+                seo_description=seo_description,
+                content_notes=content.content_notes,
+            )
+        except ValueError:
+            st.error(
+                "İçerik alanlarından biri boş veya izin verilen uzunluk sınırının dışında."
+            )
+        else:
+            st.session_state[content_key] = edited
+            st.success("İçerik düzenlemeleri oturumda kaydedildi.")
 
 
 def main() -> None:

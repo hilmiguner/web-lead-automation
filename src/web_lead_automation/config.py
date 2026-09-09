@@ -24,9 +24,15 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "test", "production"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+
     google_places_api_key: str | None = Field(default=None, repr=False)
     google_places_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
     google_places_page_size: int = Field(default=20, ge=1, le=20)
+
+    openai_api_key: str | None = Field(default=None, repr=False)
+    openai_model: str = Field(default="gpt-5.6-luna", min_length=1)
+    openai_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+
     lead_db_path: Path = Path("data/leads.sqlite3")
 
 

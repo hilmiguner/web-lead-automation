@@ -38,6 +38,7 @@ Başlangıç bölgesi: **Gemlik → Bursa → yakın ilçeler**.
 | Arayüz | Streamlit |
 | Veri | SQLite |
 | İşletme keşfi | Google Places API (New) |
+| AI içerik | OpenAI Responses API |
 | HTTP | httpx |
 | Konfigürasyon | pydantic-settings |
 | Test | pytest |
@@ -54,8 +55,15 @@ Başlangıç bölgesi: **Gemlik → Bursa → yakın ilçeler**.
 - Streamlit üzerinden bölge ve sektör seçimi
 - `Lead Ara` aksiyonu
 - Skora göre sıralı sonuç tablosu
+- Hızlı score / telefon / CRM filtreleri
+- Lead detay ekranı, CRM status ve not düzenleme
 - Telefon, rating, yorum, adres ve Google Maps linki
-- En yüksek skorlu lead için skor nedenleri
+- Açıklanabilir skor nedenleri
+- Responsive, self-contained website demo template
+- OpenAI Responses API ile strict JSON şemalı AI içerik taslağı
+- Hero, hakkında, hizmet/bilgi kartları, CTA ve SEO metni üretimi
+- Lead bazlı AI içeriğini dashboard üzerinden düzenleme
+- Doğrulanmamış hizmet ve işletme iddialarını azaltan prompt kuralları
 
 ## Kurulum
 
@@ -74,14 +82,24 @@ pip install -e ".[dev]"
 Copy-Item .env.example .env
 ```
 
-`.env` içinde Google Places anahtarını tanımla:
+`.env` içinde Google Places ve AI içerik üretimi için gerekli API ayarlarını tanımla:
 
 ```env
 APP_ENV=development
 LOG_LEVEL=INFO
-GOOGLE_PLACES_API_KEY=your_api_key_here
+
+GOOGLE_PLACES_API_KEY=your_google_api_key_here
+GOOGLE_PLACES_TIMEOUT_SECONDS=10
+GOOGLE_PLACES_PAGE_SIZE=20
+
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_TIMEOUT_SECONDS=30
+
 LEAD_DB_PATH=data/leads.sqlite3
 ```
+
+OpenAI API kullanımı ChatGPT aboneliğinden ayrı bir API anahtarı ve API hesabı gerektirir. Model `OPENAI_MODEL` ile değiştirilebilir. Varsayılan `gpt-5.6-luna`, demo metni gibi yüksek hacimli ve maliyet duyarlı işler için seçilmiştir.
 
 Gerçek API anahtarları ve secret değerler GitHub'a commit edilmemelidir.
 
@@ -98,6 +116,11 @@ Tarayıcıda açılan ekranda:
 3. İstersen özel bölge / sektör gir.
 4. `Lead Ara` butonuna bas.
 5. Web sitesi Google Places'ta listelenmeyen işletmeleri skor sırasıyla incele.
+6. Bir lead seç ve CRM durumunu / notunu güncelle.
+7. `AI İçerik Taslağı Üret` alanında yalnızca doğruladığın hizmetleri opsiyonel olarak gir.
+8. Üretilen hero, hakkında, kart, CTA ve SEO metinlerini kontrol edip düzenle.
+
+AI içerik taslağı henüz site dosyası oluşturmaz veya deploy etmez. Bu bağlantı M4.4–M4.5 aşamalarında eklenecektir.
 
 İlk kullanım için önerilen sorgular:
 
@@ -119,6 +142,8 @@ Foundation smoke test:
 ```powershell
 python -m web_lead_automation
 ```
+
+AI provider testleri gerçek API çağrısı yapmaz; `httpx.MockTransport` ile request/response sözleşmesi doğrulanır.
 
 ## Lead Scoring v1
 
@@ -147,12 +172,16 @@ Kalıcı CRM verisi mümkün olduğunca bizim ürettiğimiz satış bilgileriyle
 
 ## AI Demo Website Yaklaşımı
 
-MVP'de AI'ın her lead için sıfırdan serbest biçimde uygulama kodu yazması hedeflenmez. Daha hızlı ve güvenilir yöntem kullanılacaktır:
+MVP'de AI'ın her lead için sıfırdan serbest biçimde uygulama kodu yazması hedeflenmez. Daha hızlı ve güvenilir yöntem kullanılır:
 
 ```text
 Lead verisi
    ↓
-AI içerik + tema önerisi
+Yalnızca doğrulanmış işletme gerçekleri
+   ↓
+Structured AI içerik taslağı
+   ↓
+İnsan kontrolü / düzenleme
    ↓
 Test edilmiş landing page template
    ↓
@@ -161,7 +190,9 @@ Kişiselleştirilmiş demo
 Preview linki
 ```
 
-AI, doğrulanmamış işletme bilgilerini gerçekmiş gibi üretmemelidir. İlk hedef, bir lead için **5 dakikanın altında insan müdahalesiyle** satışta kullanılabilecek demo hazırlamaktır.
+AI içerik katmanı işletmenin sahip olmadığı hizmetleri, ödülleri, faaliyet süresini, müşteri sayılarını, referansları, fiyatları veya garantileri gerçekmiş gibi üretmemesi için sınırlandırılmıştır. Doğrulanmış hizmet girilmezse hizmet kartları tarafsız bilgi ve iletişim metinlerine dönmelidir.
+
+İlk hedef, bir lead için **5 dakikanın altında insan müdahalesiyle** satışta kullanılabilecek demo hazırlamaktır.
 
 ## İlk Satış Modeli
 
