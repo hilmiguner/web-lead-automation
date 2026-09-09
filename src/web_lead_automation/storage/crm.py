@@ -115,11 +115,27 @@ class LeadRepository:
             rows = connection.execute(query, params).fetchall()
         return tuple(self._row_to_lead(row) for row in rows)
 
+    def update(
+        self,
+        external_place_id: str,
+        *,
+        status: LeadStatus | None = None,
+        note: str | None = None,
+    ) -> TrackedLead:
+        """Update one or more CRM fields in a single SQLite transaction."""
+
+        normalized_note = note.strip() if note is not None else None
+        return self._update(
+            external_place_id,
+            status=status,
+            note=normalized_note,
+        )
+
     def update_status(self, external_place_id: str, status: LeadStatus) -> TrackedLead:
-        return self._update(external_place_id, status=status)
+        return self.update(external_place_id, status=status)
 
     def update_note(self, external_place_id: str, note: str) -> TrackedLead:
-        return self._update(external_place_id, note=note.strip())
+        return self.update(external_place_id, note=note)
 
     def _update(
         self,
