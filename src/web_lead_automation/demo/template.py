@@ -8,6 +8,8 @@ from importlib.resources import files
 from string import Template
 from urllib.parse import urlparse
 
+from web_lead_automation.demo.theme import ThemeKey, render_theme_css, resolve_theme
+
 
 @dataclass(frozen=True, slots=True)
 class DemoService:
@@ -33,14 +35,18 @@ class DemoTemplateContext:
     maps_url: str | None = None
     seo_title: str | None = None
     seo_description: str | None = None
+    theme: ThemeKey | str | None = None
+    place_types: tuple[str, ...] = ()
+    brand_mark_text: str | None = None
 
 
 def render_demo_html(context: DemoTemplateContext) -> str:
     """Render a self-contained, escaped HTML demo page.
 
-    User/AI-provided text is HTML-escaped before insertion. Only http/https map
-    links are accepted. Phone links are generated from digits rather than raw
-    user input so the template cannot inject arbitrary URI schemes.
+    User/AI-provided text is HTML-escaped before insertion. Visual styling is
+    restricted to application-owned theme presets. Only http/https map links
+    are accepted. Phone links are generated from digits rather than raw user
+    input so the template cannot inject arbitrary URI schemes.
     """
 
     business_name = _required(context.business_name, "business_name")
@@ -53,6 +59,12 @@ def render_demo_html(context: DemoTemplateContext) -> str:
     if not services:
         raise ValueError("services must contain at least one item.")
 
+    theme = resolve_theme(
+        context.theme,
+        sector=sector,
+        place_types=tuple(context.place_types),
+    )
+
     template_text = (
         files("web_lead_automation.demo.templates")
         .joinpath("default.html")
@@ -63,6 +75,19 @@ def render_demo_html(context: DemoTemplateContext) -> str:
     template_text = template_text.replace(
         '<span class="brand-mark">$business_name</span>',
         '<span class="brand-mark">$brand_initial</span>',
+        1,
+    )
+    # The default HTML remains independent of sectors. A second style block
+    # overrides only trusted palette variables/selectors from our own presets.
+    theme_style = (
+        f'<style data-demo-theme="{escape(theme.key.value, quote=True)}">\n'
+        f"{render_theme_css(theme)}\n"
+        "</style>"
+    )
+    template_text = template_text.replace("</head>", f"{theme_style}\n</head>", 1)
+    template_text = template_text.replace(
+        "İşletmenize hızlıca ulaşın, hizmetleri inceleyin ve konum bilgisine tek ekrandan erişin.",
+        "$visual_label",
         1,
     )
 
@@ -89,11 +114,14 @@ def render_demo_html(context: DemoTemplateContext) -> str:
         "seo_title": escape(seo_title),
         "seo_description": escape(seo_description, quote=True),
         "business_name": escape(business_name),
-        "brand_initial": escape(_brand_initial(business_name)),
+        "brand_initial": escape(
+            _brand_mark(context.brand_mark_text, business_name)
+        ),
         "sector": escape(sector),
         "hero_title": escape(hero_title),
         "hero_text": escape(hero_text),
         "about_text": escape(about_text),
+        "visual_label": escape(theme.visual_label),
         "service_cards": _render_service_cards(services),
         "phone_display": escape(phone_display or "Telefon bilgisi eklenecek"),
         "phone_href": escape(phone_href, quote=True),
@@ -129,8 +157,11 @@ def _required(value: str, field_name: str) -> str:
     return normalized
 
 
-def _brand_initial(business_name: str) -> str:
-    return business_name[0].upper()
+def _brand_mark(value: str | None, business_name: str) -> str:
+    mark = (value or "").strip() or business_name[0].upper()
+    if len(mark) > 3:
+        raise ValueError("brand_mark_text must contain at most 3 characters.")
+    return mark
 
 
 def _phone_digits(value: str) -> str:
