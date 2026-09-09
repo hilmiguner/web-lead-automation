@@ -108,9 +108,9 @@ LOST
 
 ## M2.2 — Lead geçmişi
 
-- [ ] Daha önce görülen işletmeyi işaretle
-- [ ] Daha önce iletişime geçilen lead'i göster
-- [ ] WON / LOST lead'leri yeni arama sonuçlarından ayırt et
+- [x] Daha önce görülen işletmeyi işaretle
+- [x] Daha önce iletişime geçilen lead'i göster
+- [x] WON / LOST lead'leri yeni arama sonuçlarından ayırt et
 
 **Çıkış kriteri:**
 
