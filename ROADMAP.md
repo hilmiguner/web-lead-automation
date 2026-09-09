@@ -29,13 +29,13 @@ Bunlar çalıştığında **MVP geliştirmesi durdurulacak ve ürün gerçek hay
 
 ## M0.1 — Proje iskeleti
 
-- [ ] Python proje yapısını oluştur
-- [ ] `pyproject.toml`
-- [ ] `.gitignore`
-- [ ] `.env.example`
-- [ ] Temel config yönetimi
-- [ ] Logging altyapısı
-- [ ] Test altyapısı
+- [x] Python proje yapısını oluştur
+- [x] `pyproject.toml`
+- [x] `.gitignore`
+- [x] `.env.example`
+- [x] Temel config yönetimi
+- [x] Logging altyapısı
+- [x] Test altyapısı
 
 **Çıkış kriteri:**
 
@@ -418,7 +418,6 @@ Aşağıdakiler ihtiyaç ortaya çıkmadan geliştirilmemelidir:
 - Tam otonom outreach
 
 Bunlar kötü fikirler değildir; **ilk müşteriyi kazanmadan önce yanlış önceliktir.**
-
 Not: MVP'deki paylaşılabilir demo için gereken minimum deployment çözümü bu ertelemenin dışındadır.
 
 ---
