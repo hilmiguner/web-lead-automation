@@ -47,12 +47,12 @@ Proje temiz ortamda kurulabiliyor ve test komutu çalışıyor.
 
 ## M1.1 — Google Places istemcisi
 
-- [ ] Google Places API (New) entegrasyonu
-- [ ] Text Search desteği
-- [ ] Bölge + sektör sorgusu
-- [ ] Gerekli minimum field'ları çek
-- [ ] Timeout ve temel hata yönetimi
-- [ ] API anahtarını environment üzerinden al
+- [x] Google Places API (New) entegrasyonu
+- [x] Text Search desteği
+- [x] Bölge + sektör sorgusu
+- [x] Gerekli minimum field'ları çek
+- [x] Timeout ve temel hata yönetimi
+- [x] API anahtarını environment üzerinden al
 
 Örnek sorgular:
 
@@ -65,19 +65,19 @@ emlak ofisi Nilüfer Bursa
 
 ## M1.2 — Website filtresi
 
-- [ ] Website bilgisi bulunan işletmeleri tespit et
-- [ ] Website bulunmayan işletmeleri ayrı listele
-- [ ] Eksik / belirsiz website durumunu güvenli şekilde işle
+- [x] Website bilgisi bulunan işletmeleri tespit et
+- [x] Website bulunmayan işletmeleri ayrı listele
+- [x] Eksik / belirsiz website durumunu güvenli şekilde işle
 
 ## M1.3 — Lead scoring v1
 
-- [ ] 0–100 arası skor
-- [ ] Website yokluğu
-- [ ] Telefon varlığı
-- [ ] Yorum sayısı
-- [ ] Rating
-- [ ] İşletme türü
-- [ ] Skor nedenlerini kullanıcıya göster
+- [x] 0–100 arası skor
+- [x] Website yokluğu
+- [x] Telefon varlığı
+- [x] Yorum sayısı
+- [x] Rating
+- [x] İşletme türü
+- [x] Skor nedenlerini kullanıcıya göster
 
 **Çıkış kriteri:**
 
@@ -89,12 +89,12 @@ Terminal/test katmanından gerçek bir bölge + sektör sorgusu yapıldığında
 
 ## M2.1 — SQLite veri katmanı
 
-- [ ] SQLite database oluştur
-- [ ] Lead kaydı
-- [ ] Harici işletme kimliği ile duplicate kontrolü
-- [ ] Lead status
-- [ ] Kullanıcı notu
-- [ ] Created / updated timestamp
+- [x] SQLite database oluştur
+- [x] Lead kaydı
+- [x] Harici işletme kimliği ile duplicate kontrolü
+- [x] Lead status
+- [x] Kullanıcı notu
+- [x] Created / updated timestamp
 
 İlk durumlar:
 
