@@ -76,8 +76,8 @@ def test_generate_writes_html_and_manifest_with_reviewed_content(tmp_path) -> No
     assert generated.manifest_path.exists()
 
     html = generated.index_path.read_text(encoding="utf-8")
-    assert "Gemlik'te bakım için kolay iletişim" in html
-    assert "WhatsApp'tan Bilgi Al" in html
+    assert "Gemlik&#x27;te bakım için kolay iletişim" in html
+    assert "WhatsApp&#x27;tan Bilgi Al" in html
     assert "Telefonla Görüş" in html
     assert 'data-demo-theme="hair_beauty"' in html
 
@@ -98,7 +98,7 @@ def test_regenerate_reuses_same_folder_and_replaces_reviewed_content(tmp_path) -
     assert second.slug == first.slug
     assert second.directory == first.directory
     assert "Güncellenmiş hero başlığı" in second.index_path.read_text(encoding="utf-8")
-    assert "Gemlik'te bakım için kolay iletişim" not in second.index_path.read_text(
+    assert "Gemlik&#x27;te bakım için kolay iletişim" not in second.index_path.read_text(
         encoding="utf-8"
     )
 
