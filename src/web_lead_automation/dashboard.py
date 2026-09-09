@@ -1,4 +1,4 @@
-"""Streamlit dashboard for the MVP lead-search workflow."""
+"""Streamlit dashboard for the MVP lead-search and demo workflow."""
 
 from __future__ import annotations
 
@@ -8,6 +8,14 @@ from typing import Iterable
 import streamlit as st
 
 from web_lead_automation.config import Settings, get_settings
+from web_lead_automation.demo import (
+    THEMES,
+    DemoGenerationError,
+    DemoGenerationRequest,
+    DemoGenerator,
+    ThemeKey,
+    recommend_theme,
+)
 from web_lead_automation.services.ai_content import (
     AIContentError,
     BusinessContentBrief,
@@ -33,6 +41,7 @@ SEARCH_SECTOR_SESSION_KEY = "lead_search_sector"
 SELECTED_PLACE_SESSION_KEY = "selected_place_id"
 FLASH_SESSION_KEY = "crm_flash_message"
 AI_CONTENT_SESSION_PREFIX = "ai_content:"
+DEMO_PATH_SESSION_PREFIX = "demo_path:"
 
 SECTOR_PRESETS = (
     "Kuaför / Berber",
@@ -102,6 +111,12 @@ def ai_content_session_key(place_id: str) -> str:
     return f"{AI_CONTENT_SESSION_PREFIX}{place_id}"
 
 
+def demo_path_session_key(place_id: str) -> str:
+    """Return a stable per-lead session key for the latest generated demo path."""
+
+    return f"{DEMO_PATH_SESSION_PREFIX}{place_id}"
+
+
 def lead_rows(leads: Iterable[LeadWithHistory]) -> list[dict[str, object]]:
     """Convert enriched leads into Streamlit-friendly table rows."""
 
@@ -141,7 +156,6 @@ def filter_leads(
 
     status_filter = set(LeadStatus if statuses is None else statuses)
     filtered: list[LeadWithHistory] = []
-
     for item in leads:
         if website_only and item.lead.website_status is not WebsiteStatus.NO_WEBSITE_LISTED:
             continue
@@ -152,7 +166,6 @@ def filter_leads(
         if item.status not in status_filter:
             continue
         filtered.append(item)
-
     return tuple(filtered)
 
 
@@ -216,11 +229,10 @@ def run_dashboard() -> None:
         page_icon="🔎",
         layout="wide",
     )
-
     st.title("Web Lead Automation")
     st.caption(
-        "Web sitesi Google Places'ta listelenmeyen yerel işletmeleri bul "
-        "ve satış önceliğine göre sırala."
+        "Web sitesi Google Places'ta listelenmeyen yerel işletmeleri bul, "
+        "önceliklendir ve kişiselleştirilmiş demo üret."
     )
 
     flash_message = st.session_state.pop(FLASH_SESSION_KEY, None)
@@ -240,7 +252,6 @@ def run_dashboard() -> None:
                 "Özel bölge",
                 placeholder="Örn. Mudanya Bursa",
             )
-
     with right:
         sector_preset = st.selectbox("Sektör", SECTOR_PRESETS, index=0)
         custom_sector = ""
@@ -257,7 +268,6 @@ def run_dashboard() -> None:
         value=settings.google_places_page_size,
         step=5,
     )
-
     search_requested = st.button(
         "Lead Ara",
         type="primary",
@@ -267,11 +277,9 @@ def run_dashboard() -> None:
     if search_requested:
         sector = resolve_sector_query(sector_preset, custom_sector)
         location = resolve_location_query(location_preset, custom_location)
-
         if not sector or not location:
             st.error("Bölge ve sektör boş bırakılamaz.")
             return
-
         if not settings.google_places_api_key:
             st.error(
                 "Google Places API anahtarı bulunamadı. `.env` dosyasına "
@@ -301,8 +309,7 @@ def run_dashboard() -> None:
             st.session_state.pop(SEARCH_SECTOR_SESSION_KEY, None)
             st.session_state.pop(SELECTED_PLACE_SESSION_KEY, None)
             st.warning(
-                "Bu sorguda Google Places'ta websitesi listelenmeyen "
-                "uygun lead bulunamadı."
+                "Bu sorguda Google Places'ta websitesi listelenmeyen uygun lead bulunamadı."
             )
             return
 
@@ -317,11 +324,9 @@ def run_dashboard() -> None:
 
     visible_leads = _render_filters(result.leads)
     _render_search_results(result, visible_leads)
-
     if not visible_leads:
         st.warning("Seçili filtrelere uyan lead bulunamadı.")
         return
-
     _render_lead_detail(result, visible_leads, repository, settings)
 
 
@@ -329,7 +334,6 @@ def _render_filters(
     leads: tuple[LeadWithHistory, ...],
 ) -> tuple[LeadWithHistory, ...]:
     st.markdown("#### Hızlı filtreler")
-
     website_col, score_col, phone_col, status_col = st.columns(4)
     with website_col:
         website_only = st.checkbox(
@@ -354,13 +358,12 @@ def _render_filters(
             default=[status.value for status in LeadStatus],
         )
 
-    statuses = tuple(LeadStatus(value) for value in selected_status_values)
     return filter_leads(
         leads,
         website_only=website_only,
         min_score=min_score,
         phone_only=phone_only,
-        statuses=statuses,
+        statuses=tuple(LeadStatus(value) for value in selected_status_values),
     )
 
 
@@ -369,28 +372,18 @@ def _render_search_results(
     visible_leads: tuple[LeadWithHistory, ...],
 ) -> None:
     st.success(f"{len(visible_leads)} / {len(result.leads)} lead gösteriliyor.")
-
     if visible_leads:
-        rows = lead_rows(visible_leads)
         st.dataframe(
-            rows,
+            lead_rows(visible_leads),
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Skor": st.column_config.NumberColumn(
-                    "Skor",
-                    min_value=0,
-                    max_value=100,
-                ),
+                "Skor": st.column_config.NumberColumn("Skor", min_value=0, max_value=100),
                 "Rating": st.column_config.NumberColumn("Rating", format="%.1f"),
-                "Google Maps": st.column_config.LinkColumn(
-                    "Google Maps",
-                    display_text="Aç",
-                ),
+                "Google Maps": st.column_config.LinkColumn("Google Maps", display_text="Aç"),
                 "Place ID": None,
             },
         )
-
     if result.next_page_token:
         st.caption(
             "Google Places bu sorgu için ek sonuç sayfası olduğunu bildirdi. "
@@ -412,7 +405,6 @@ def _render_lead_detail(
     if current_place_id not in place_ids:
         current_place_id = place_ids[0]
         st.session_state[SELECTED_PLACE_SESSION_KEY] = current_place_id
-
     current_index = place_ids.index(current_place_id)
     selected_place_id = st.selectbox(
         "Detayını görmek istediğin lead",
@@ -423,14 +415,12 @@ def _render_lead_detail(
         ),
     )
     st.session_state[SELECTED_PLACE_SESSION_KEY] = selected_place_id
-
     selected = find_lead_by_place_id(visible_leads, selected_place_id)
     if selected is None:
         st.error("Seçilen lead arama sonucunda bulunamadı.")
         return
 
     place = selected.lead.place
-
     score_col, rating_col, reviews_col, status_col = st.columns(4)
     score_col.metric("Lead Score", f"{selected.lead.score}/100")
     rating_col.metric(
@@ -447,88 +437,106 @@ def _render_lead_detail(
         st.write(f"**Adres:** {place.formatted_address or '—'}")
         st.write("**Website:** Google Places'ta listelenmiyor")
     with detail_right:
-        st.write(
-            "**Daha önce görüldü:** "
-            + ("Evet" if selected.seen_before else "Hayır")
-        )
-        st.write(
-            "**Daha önce iletişim:** "
-            + ("Evet" if selected.was_contacted else "Hayır")
-        )
+        st.write("**Daha önce görüldü:** " + ("Evet" if selected.seen_before else "Hayır"))
+        st.write("**Daha önce iletişim:** " + ("Evet" if selected.was_contacted else "Hayır"))
         st.write(f"**İlk görüldü:** {selected.first_seen_at:%Y-%m-%d %H:%M UTC}")
 
     if place.google_maps_uri:
-        st.link_button(
-            "Google Maps'te Aç",
-            place.google_maps_uri,
-            use_container_width=False,
-        )
-
+        st.link_button("Google Maps'te Aç", place.google_maps_uri)
     with st.expander("Skor açıklaması", expanded=True):
         for reason in selected.lead.reasons:
             st.write(f"- {reason.message}")
 
     _render_ai_content_draft(selected, settings)
+    _render_crm(selected, result, repository)
 
+
+def _render_crm(
+    selected: LeadWithHistory,
+    result: LeadSearchWithHistoryResult,
+    repository: LeadRepository,
+) -> None:
+    place = selected.lead.place
+    place_id = place.place_id
     st.markdown("#### CRM")
-    with st.form(f"crm_form_{selected_place_id}"):
+    with st.form(f"crm_form_{place_id}"):
         status_values = [status.value for status in LeadStatus]
         selected_status = st.selectbox(
             "Durum",
             options=status_values,
             index=status_values.index(selected.status.value),
-            key=f"crm_status_{selected_place_id}",
+            key=f"crm_status_{place_id}",
         )
         note = st.text_area(
             "Not",
             value=selected.note,
             height=120,
             placeholder="Örn. WhatsApp üzerinden ulaşıldı, cuma tekrar ara.",
-            key=f"crm_note_{selected_place_id}",
+            key=f"crm_note_{place_id}",
         )
         submitted = st.form_submit_button(
             "CRM Kaydet",
             type="primary",
             use_container_width=True,
         )
+    if not submitted:
+        return
 
-    if submitted:
-        tracked = repository.update(
-            selected_place_id,
-            status=LeadStatus(selected_status),
-            note=note,
-        )
-        updated = apply_tracked_state(selected, tracked)
-        st.session_state[SEARCH_RESULT_SESSION_KEY] = replace_result_lead(
-            result,
-            updated,
-        )
-        st.session_state[FLASH_SESSION_KEY] = (
-            f"{place.display_name or 'Lead'} CRM kaydı güncellendi."
-        )
-        st.rerun()
+    tracked = repository.update(
+        place_id,
+        status=LeadStatus(selected_status),
+        note=note,
+    )
+    st.session_state[SEARCH_RESULT_SESSION_KEY] = replace_result_lead(
+        result,
+        apply_tracked_state(selected, tracked),
+    )
+    st.session_state[FLASH_SESSION_KEY] = (
+        f"{place.display_name or 'Lead'} CRM kaydı güncellendi."
+    )
+    st.rerun()
 
 
 def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> None:
-    """Generate and edit AI copy without creating/deploying the website yet."""
+    """Generate/edit AI copy, then materialize it as a local static demo."""
 
     place = selected.lead.place
     place_id = place.place_id
+    business_name = place.display_name or place_id
     content_key = ai_content_session_key(place_id)
+    path_key = demo_path_session_key(place_id)
+    generator = DemoGenerator(settings.demo_output_path)
+
+    saved_draft = None
+    content = st.session_state.get(content_key)
+    if not isinstance(content, DemoAIContent):
+        try:
+            saved_draft = generator.load_saved_draft(
+                external_place_id=place_id,
+                business_name=business_name,
+            )
+        except DemoGenerationError as exc:
+            st.warning(str(exc))
+        else:
+            if saved_draft is not None:
+                content = saved_draft.content
+                st.session_state[content_key] = content
 
     st.divider()
     st.subheader("AI demo içeriği")
     st.caption(
-        "Bu aşama yalnızca düzenlenebilir içerik taslağı üretir. Site dosyası ve "
-        "preview oluşturma M4.4–M4.5 aşamalarında bağlanacak."
+        "İçeriği üret veya düzenle; ardından aynı lead klasöründe statik demo dosyalarını oluştur."
     )
 
-    fallback_sector = (
-        place.types[0].replace("_", " ") if place.types else "yerel işletme"
+    fallback_sector = place.types[0].replace("_", " ") if place.types else "yerel işletme"
+    default_sector = (
+        saved_draft.sector
+        if saved_draft is not None
+        else str(st.session_state.get(SEARCH_SECTOR_SESSION_KEY) or fallback_sector)
     )
     sector = st.text_input(
         "İçerik sektörü",
-        value=str(st.session_state.get(SEARCH_SECTOR_SESSION_KEY) or fallback_sector),
+        value=default_sector,
         key=f"ai_sector_{place_id}",
     )
     known_services_raw = st.text_area(
@@ -543,18 +551,16 @@ def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> N
 
     if not settings.openai_api_key:
         st.info(
-            "AI içerik üretmek için `.env` dosyasına `OPENAI_API_KEY=...` ekle. "
-            "Model `OPENAI_MODEL` ile değiştirilebilir."
+            "Yeni AI içerik üretmek için `.env` dosyasına `OPENAI_API_KEY=...` ekle. "
+            "Daha önce kaydedilmiş bir demo taslağı varsa API anahtarı olmadan yeniden üretilebilir."
         )
 
-    generate_requested = st.button(
+    if st.button(
         "AI İçerik Taslağı Üret",
         key=f"generate_ai_content_{place_id}",
         disabled=not bool(settings.openai_api_key),
         use_container_width=True,
-    )
-
-    if generate_requested:
+    ):
         try:
             with st.spinner("AI içerik taslağı hazırlanıyor..."):
                 with OpenAIContentClient(
@@ -564,18 +570,17 @@ def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> N
                 ) as client:
                     content = client.generate(
                         BusinessContentBrief(
-                            business_name=place.display_name or place.place_id,
+                            business_name=business_name,
                             sector=sector,
                             address=place.formatted_address,
                             known_services=parse_known_services(known_services_raw),
                         )
                     )
             st.session_state[content_key] = content
-            st.success("AI içerik taslağı üretildi. Paylaşmadan önce kontrol et.")
+            st.success("AI içerik taslağı üretildi. Demo oluşturmadan önce kontrol et.")
         except (AIContentError, ValueError) as exc:
             st.error(str(exc))
 
-    content = st.session_state.get(content_key)
     if not isinstance(content, DemoAIContent):
         return
 
@@ -584,6 +589,22 @@ def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> N
             for note in content.content_notes:
                 st.write(f"- {note}")
 
+    content = _render_editable_content_form(place_id, content)
+    st.session_state[content_key] = content
+    _render_demo_generation_controls(
+        selected=selected,
+        settings=settings,
+        sector=sector,
+        content=content,
+        saved_theme=saved_draft.theme_key if saved_draft else None,
+        saved_brand_mark=saved_draft.brand_mark_text if saved_draft else None,
+        path_key=path_key,
+    )
+
+
+def _render_editable_content_form(place_id: str, content: DemoAIContent) -> DemoAIContent:
+    """Render the editable AI draft and return the latest validated version."""
+
     with st.form(f"ai_content_form_{place_id}"):
         tone = st.text_input("Ton", value=content.tone)
         hero_title = st.text_input("Hero başlığı", value=content.hero_title)
@@ -591,7 +612,6 @@ def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> N
         about_text = st.text_area("Hakkında", value=content.about_text, height=140)
 
         st.markdown("**Hizmet / bilgi kartları**")
-        edited_services: list[GeneratedService] = []
         service_values: list[tuple[str, str]] = []
         for index, service in enumerate(content.services, start=1):
             title = st.text_input(
@@ -609,16 +629,9 @@ def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> N
 
         cta_left, cta_right = st.columns(2)
         with cta_left:
-            primary_cta_text = st.text_input(
-                "Birincil CTA",
-                value=content.primary_cta_text,
-            )
+            primary_cta_text = st.text_input("Birincil CTA", value=content.primary_cta_text)
         with cta_right:
-            secondary_cta_text = st.text_input(
-                "İkincil CTA",
-                value=content.secondary_cta_text,
-            )
-
+            secondary_cta_text = st.text_input("İkincil CTA", value=content.secondary_cta_text)
         seo_title = st.text_input("SEO title", value=content.seo_title)
         seo_description = st.text_area(
             "SEO description",
@@ -630,31 +643,101 @@ def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> N
             use_container_width=True,
         )
 
-    if save_content:
-        try:
-            edited_services = [
+    if not save_content:
+        return content
+
+    try:
+        edited = DemoAIContent(
+            tone=tone,
+            hero_title=hero_title,
+            hero_text=hero_text,
+            about_text=about_text,
+            services=tuple(
                 GeneratedService(title=title, description=description)
                 for title, description in service_values
-            ]
-            edited = DemoAIContent(
-                tone=tone,
-                hero_title=hero_title,
-                hero_text=hero_text,
-                about_text=about_text,
-                services=tuple(edited_services),
-                primary_cta_text=primary_cta_text,
-                secondary_cta_text=secondary_cta_text,
-                seo_title=seo_title,
-                seo_description=seo_description,
-                content_notes=content.content_notes,
+            ),
+            primary_cta_text=primary_cta_text,
+            secondary_cta_text=secondary_cta_text,
+            seo_title=seo_title,
+            seo_description=seo_description,
+            content_notes=content.content_notes,
+        )
+    except ValueError:
+        st.error("İçerik alanlarından biri boş veya izin verilen uzunluk sınırının dışında.")
+        return content
+
+    st.success("İçerik düzenlemeleri oturumda kaydedildi.")
+    return edited
+
+
+def _render_demo_generation_controls(
+    *,
+    selected: LeadWithHistory,
+    settings: Settings,
+    sector: str,
+    content: DemoAIContent,
+    saved_theme: ThemeKey | None,
+    saved_brand_mark: str | None,
+    path_key: str,
+) -> None:
+    """Render M4.4 controls and write the reviewed static demo to disk."""
+
+    place = selected.lead.place
+    recommended = recommend_theme(sector, place_types=tuple(place.types))
+    default_theme = saved_theme or recommended.key
+    theme_values = [key.value for key in ThemeKey]
+
+    st.markdown("#### Demo oluşturma")
+    theme_col, brand_col = st.columns(2)
+    with theme_col:
+        selected_theme_value = st.selectbox(
+            "Demo teması",
+            options=theme_values,
+            index=theme_values.index(default_theme.value),
+            format_func=lambda value: THEMES[ThemeKey(value)].label,
+            key=f"demo_theme_{place.place_id}",
+        )
+    with brand_col:
+        brand_mark = st.text_input(
+            "Marka işareti (opsiyonel, en fazla 3 karakter)",
+            value=saved_brand_mark or "",
+            key=f"demo_brand_mark_{place.place_id}",
+        )
+
+    if st.button(
+        "Demo Oluştur / Yeniden Oluştur",
+        type="primary",
+        use_container_width=True,
+        key=f"generate_demo_{place.place_id}",
+    ):
+        try:
+            generated = DemoGenerator(settings.demo_output_path).generate(
+                DemoGenerationRequest(
+                    external_place_id=place.place_id,
+                    business_name=place.display_name or place.place_id,
+                    sector=sector,
+                    content=content,
+                    phone_number=place.national_phone_number,
+                    address=place.formatted_address,
+                    maps_url=place.google_maps_uri,
+                    place_types=tuple(place.types),
+                    theme=ThemeKey(selected_theme_value),
+                    brand_mark_text=brand_mark.strip() or None,
+                )
             )
-        except ValueError:
-            st.error(
-                "İçerik alanlarından biri boş veya izin verilen uzunluk sınırının dışında."
-            )
+        except (DemoGenerationError, ValueError) as exc:
+            st.error(str(exc))
         else:
-            st.session_state[content_key] = edited
-            st.success("İçerik düzenlemeleri oturumda kaydedildi.")
+            st.session_state[path_key] = str(generated.index_path.resolve())
+            action = "yeniden oluşturuldu" if generated.regenerated else "oluşturuldu"
+            st.success(f"Demo {action}: {generated.slug}")
+
+    generated_path = st.session_state.get(path_key)
+    if generated_path:
+        st.code(str(generated_path), language=None)
+        st.caption(
+            "Statik `index.html` hazır. Local preview ve paylaşılabilir deployment M4.5'te bağlanacak."
+        )
 
 
 def main() -> None:
