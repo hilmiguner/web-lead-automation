@@ -82,6 +82,20 @@ def test_status_and_note_updates_are_persisted(tmp_path):
     assert persisted.note == "Requested a demo"
 
 
+def test_update_changes_status_and_note_together(tmp_path):
+    repo = make_repo(tmp_path)
+    repo.track("place-123")
+
+    updated = repo.update(
+        "place-123",
+        status=LeadStatus.CONTACTED,
+        note="  WhatsApp message sent  ",
+    )
+
+    assert updated.status is LeadStatus.CONTACTED
+    assert updated.note == "WhatsApp message sent"
+
+
 def test_list_can_filter_by_status(tmp_path):
     repo = make_repo(tmp_path)
     repo.track("place-new")
