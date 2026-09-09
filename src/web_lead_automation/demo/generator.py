@@ -23,6 +23,22 @@ from web_lead_automation.services.ai_content import DemoAIContent
 
 
 MANIFEST_VERSION = 1
+TURKISH_ASCII_TRANSLATION = str.maketrans(
+    {
+        "ç": "c",
+        "Ç": "C",
+        "ğ": "g",
+        "Ğ": "G",
+        "ı": "i",
+        "İ": "I",
+        "ö": "o",
+        "Ö": "O",
+        "ş": "s",
+        "Ş": "S",
+        "ü": "u",
+        "Ü": "U",
+    }
+)
 
 
 class DemoGenerationError(RuntimeError):
@@ -190,7 +206,7 @@ def demo_slug(business_name: str, external_place_id: str) -> str:
     name = _required(business_name, "business_name")
     place_id = _required(external_place_id, "external_place_id")
     ascii_name = (
-        unicodedata.normalize("NFKD", name)
+        unicodedata.normalize("NFKD", name.translate(TURKISH_ASCII_TRANSLATION))
         .encode("ascii", "ignore")
         .decode("ascii")
         .lower()
