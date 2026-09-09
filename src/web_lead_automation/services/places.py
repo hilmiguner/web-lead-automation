@@ -7,6 +7,8 @@ from typing import Any
 
 import httpx
 
+from web_lead_automation.config import Settings, get_settings
+
 
 TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 
@@ -74,6 +76,7 @@ class GooglePlacesClient:
         *,
         api_key: str | None,
         timeout_seconds: float = 10.0,
+        default_page_size: int = 20,
         http_client: httpx.Client | None = None,
     ) -> None:
         api_key = (api_key or "").strip()
@@ -83,8 +86,11 @@ class GooglePlacesClient:
             )
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than 0.")
+        if not 1 <= default_page_size <= 20:
+            raise ValueError("default_page_size must be between 1 and 20.")
 
         self._api_key = api_key
+        self._default_page_size = default_page_size
         self._owns_http_client = http_client is None
         self._http_client = http_client or httpx.Client(timeout=timeout_seconds)
 
@@ -105,7 +111,7 @@ class GooglePlacesClient:
         *,
         sector: str,
         location: str,
-        page_size: int = 20,
+        page_size: int | None = None,
         page_token: str | None = None,
     ) -> TextSearchResult:
         """Search businesses using a simple sector + location query."""
@@ -127,7 +133,7 @@ class GooglePlacesClient:
         self,
         text_query: str,
         *,
-        page_size: int = 20,
+        page_size: int | None = None,
         page_token: str | None = None,
     ) -> TextSearchResult:
         """Run a Places API (New) Text Search request."""
@@ -135,12 +141,14 @@ class GooglePlacesClient:
         text_query = text_query.strip()
         if not text_query:
             raise ValueError("text_query must not be empty.")
-        if not 1 <= page_size <= 20:
+
+        resolved_page_size = self._default_page_size if page_size is None else page_size
+        if not 1 <= resolved_page_size <= 20:
             raise ValueError("page_size must be between 1 and 20.")
 
         payload: dict[str, Any] = {
             "textQuery": text_query,
-            "pageSize": page_size,
+            "pageSize": resolved_page_size,
             "languageCode": "tr",
             "regionCode": "TR",
             "includePureServiceAreaBusinesses": True,
@@ -186,7 +194,9 @@ class GooglePlacesClient:
             )
 
         return TextSearchResult(
-            places=tuple(self._parse_place(raw) for raw in raw_places),
+            places=tuple(
+                self._parse_place(raw) for raw in raw_places if isinstance(raw, dict)
+            ),
             next_page_token=self._optional_str(data.get("nextPageToken")),
         )
 
@@ -253,3 +263,19 @@ class GooglePlacesClient:
         if isinstance(value, bool) or not isinstance(value, int):
             return None
         return value
+
+
+def create_google_places_client(
+    settings: Settings | None = None,
+    *,
+    http_client: httpx.Client | None = None,
+) -> GooglePlacesClient:
+    """Create a Places client from application environment settings."""
+
+    resolved_settings = settings or get_settings()
+    return GooglePlacesClient(
+        api_key=resolved_settings.google_places_api_key,
+        timeout_seconds=resolved_settings.google_places_timeout_seconds,
+        default_page_size=resolved_settings.google_places_page_size,
+        http_client=http_client,
+    )
