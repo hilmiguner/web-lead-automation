@@ -26,6 +26,9 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"web_lead_automation.demo.templates" = ["*.html"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
