@@ -30,21 +30,20 @@ Demo linkli satış mesajı hazırla
 
 Başlangıç bölgesi: **Gemlik → Bursa → yakın ilçeler**.
 
-## MVP Kapsamı
+## Şu Anda Çalışan Akış
 
-MVP tamamlandığında kullanıcı:
+Mevcut sürümde Streamlit dashboard üzerinden:
 
-- Bölge ve sektör girerek işletme arayabilecek.
-- Web sitesi bulunan / bulunmayan işletmeleri ayırabilecek.
-- Potansiyel müşterileri otomatik puanlayabilecek.
-- En değerli lead'leri sıralayabilecek.
-- Lead durumunu ve notlarını takip edebilecek.
-- Seçilen lead için AI destekli tek sayfalık demo site oluşturabilecek.
-- Demo için paylaşılabilir preview alabilecek.
-- Demo linkli kişiselleştirilmiş satış mesajı oluşturabilecek.
-- Daha önce işlenen işletmelerin tekrar tekrar karşısına çıkmasını engelleyebilecek.
+1. Bölge girilir.
+2. Hazır sektör seçilir veya özel sektör yazılır.
+3. `Lead Ara` butonuna basılır.
+4. Google Places API (New) üzerinden işletmeler aranır.
+5. Google Places'ta website bilgisi listelenmeyen işletmeler ayrılır.
+6. Lead'ler 0–100 arası açıklanabilir skorla sıralanır.
+7. SQLite CRM geçmişi sonuçlara eklenir.
+8. Sonuç tablosunda işletme, skor, telefon, rating, yorum, CRM durumu, adres ve Maps linki görülür.
 
-İlk CRM durumları:
+CRM durumları:
 
 ```text
 NEW
@@ -59,40 +58,47 @@ LOST
 | Katman | Teknoloji |
 |---|---|
 | Dil | Python 3.11+ |
-| Arayüz | Streamlit |
+| Arayüz | Streamlit 1.61+ |
 | Veri | SQLite |
 | İşletme keşfi | Google Places API (New) |
 | HTTP | httpx |
 | Konfigürasyon | pydantic-settings |
-| Test | pytest |
+| Test | pytest + Streamlit AppTest |
 | CI | GitHub Actions |
 
 MVP doğrulandıktan sonra ihtiyaç oluşursa ayrı API, PostgreSQL veya daha gelişmiş frontend mimarisine geçilebilir.
 
-## Mevcut Proje Yapısı
+## Proje Yapısı
 
 ```text
 web-lead-automation/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
+├── app.py
 ├── src/
 │   └── web_lead_automation/
 │       ├── __init__.py
 │       ├── __main__.py
 │       ├── config.py
-│       └── logging_config.py
+│       ├── logging_config.py
+│       ├── streamlit_app.py
+│       ├── ui_models.py
+│       ├── services/
+│       │   ├── lead_finder.py
+│       │   ├── lead_history.py
+│       │   ├── places.py
+│       │   ├── scoring.py
+│       │   └── website_filter.py
+│       └── storage/
+│           └── crm.py
 ├── tests/
-│   ├── test_config.py
-│   └── test_logging_config.py
 ├── .env.example
 ├── .gitignore
 ├── pyproject.toml
 ├── README.md
 └── ROADMAP.md
 ```
-
-Yapı geliştirme ilerledikçe servis, veri ve UI katmanlarıyla genişletilecektir.
 
 ## Kurulum
 
@@ -111,50 +117,75 @@ pip install -e ".[dev]"
 Copy-Item .env.example .env
 ```
 
+`.env` dosyasını açıp Google Places API anahtarını gir:
+
+```env
+APP_ENV=development
+LOG_LEVEL=INFO
+GOOGLE_PLACES_API_KEY=YOUR_API_KEY
+GOOGLE_PLACES_TIMEOUT_SECONDS=10
+GOOGLE_PLACES_PAGE_SIZE=20
+LEAD_DB_PATH=data/leads.sqlite3
+```
+
+Gerçek API anahtarları ve secret değerler GitHub'a commit edilmemelidir.
+
+## Dashboard'u Çalıştır
+
+```powershell
+streamlit run app.py
+```
+
+Tarayıcı otomatik açılmazsa terminalde Streamlit'in gösterdiği local adres açılır.
+
+API key tanımlı değilse dashboard yine açılır ancak gerçek işletme araması yapılamaz ve ekranda uyarı gösterilir.
+
+## Testler
+
+```powershell
+pytest
+```
+
+CI; servis katmanı, SQLite CRM, scoring, website filtresi ve Streamlit dashboard smoke testlerini çalıştırır.
+
 Foundation smoke test:
 
 ```powershell
 python -m web_lead_automation
 ```
 
-Testler:
+## Lead Scoring v1
 
-```powershell
-pytest
-```
+İlk sürüm deterministik ve açıklanabilir bir puanlama kullanır:
 
-Beklenen test sonucu foundation aşamasında:
-
-```text
-4 passed
-```
-
-## Environment
-
-`.env.example` dosyası local `.env` dosyasına kopyalanır.
-
-```env
-APP_ENV=development
-LOG_LEVEL=INFO
-GOOGLE_PLACES_API_KEY=
-LEAD_DB_PATH=data/leads.sqlite3
-```
-
-Gerçek API anahtarları ve secret değerler GitHub'a commit edilmemelidir.
-
-## Lead Scoring
-
-İlk sürümde basit ve açıklanabilir bir puanlama kullanılacaktır. Örnek sinyaller:
-
-- Web sitesi bulunmuyor
-- Telefon numarası mevcut
-- Yüksek Google yorum sayısı
-- İyi Google puanı
-- İşletme aktif görünüyor
-- Seçilen sektör satış açısından değerli
-- Daha önce iletişime geçilmemiş
+| Sinyal | Maksimum Puan |
+|---|---:|
+| Google Places'ta website listelenmiyor | 40 |
+| Telefon mevcut | 15 |
+| Yorum hacmi | 20 |
+| Rating | 15 |
+| Hedef işletme türü | 10 |
+| **Toplam** | **100** |
 
 Puanlama gerçek satış sonuçlarına göre güncellenecektir. Amaç teorik olarak mükemmel skor değil, **hangi işletmenin önce aranması gerektiğini söyleyen pratik bir sıralama** üretmektir.
+
+## Website Durumu Hakkında
+
+Google Places'ta `websiteUri` alanının bulunmaması, işletmenin internetin hiçbir yerinde sitesi olmadığını matematiksel olarak kanıtlamaz. Bu nedenle uygulama bunu **"Google Places'ta website listelenmiyor"** şeklinde ele alır.
+
+Belirsiz veya bozuk website verileri website'siz lead listesine dahil edilmez.
+
+## CRM ve Lead Geçmişi
+
+SQLite içinde kalıcı olarak temel satış pipeline bilgileri tutulur:
+
+- Google Place ID
+- CRM status
+- kullanıcı notu
+- ilk görülme tarihi
+- son güncelleme tarihi
+
+Aynı Place ID tekrar bulunduğunda duplicate kayıt oluşturulmaz. Mevcut status ve not korunur; dashboard lead'in daha önce görülüp görülmediğini gösterebilir.
 
 ## AI Demo Website Yaklaşımı
 
@@ -173,17 +204,6 @@ Preview linki
 ```
 
 AI, doğrulanmamış işletme bilgilerini gerçekmiş gibi üretmemelidir. İlk hedef, bir lead için **5 dakikanın altında insan müdahalesiyle** satışta kullanılabilecek demo hazırlamaktır.
-
-## Veri Kullanımı
-
-Harici veri kaynaklarının kullanım ve saklama koşulları dikkate alınacaktır. Kalıcı CRM verisi mümkün olduğunca bizim ürettiğimiz satış bilgileriyle sınırlı tutulacaktır:
-
-- Harici işletme kimliği
-- Lead durumu
-- Kullanıcı notları
-- İletişim geçmişi
-- Lead score ve uygulamanın ürettiği metadata
-- Demo bağlantısı
 
 ## İlk Satış Modeli
 
