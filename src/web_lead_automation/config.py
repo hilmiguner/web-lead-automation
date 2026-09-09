@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     openai_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
 
     lead_db_path: Path = Path("data/leads.sqlite3")
+    demo_output_path: Path = Path("data/demos")
 
 
 @lru_cache(maxsize=1)
