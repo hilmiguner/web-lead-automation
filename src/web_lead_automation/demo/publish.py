@@ -14,6 +14,22 @@ import httpx
 
 
 NETLIFY_API_BASE = "https://api.netlify.com/api/v1"
+ROOT_INDEX_HTML = """<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Demo Önizlemeleri</title>
+</head>
+<body>
+  <main>
+    <h1>Demo Önizlemeleri</h1>
+    <p>Bu alan yalnızca doğrudan paylaşılan demo bağlantıları için kullanılır.</p>
+  </main>
+</body>
+</html>
+"""
 
 
 class DemoPublishError(RuntimeError):
@@ -79,7 +95,7 @@ class NetlifyPublisher:
         self._client.close()
 
     def publish(self, output_root: str | Path) -> PublishedDemoSite:
-        """Publish every current local demo as one production deployment."""
+        """Publish the current local demo set as one production deployment."""
 
         archive = build_publish_archive(output_root)
         try:
@@ -129,11 +145,15 @@ class NetlifyPublisher:
 
 
 def build_publish_archive(output_root: str | Path) -> bytes:
-    """Build a ZIP containing public HTML only; manifests stay local."""
+    """Build a ZIP containing public HTML only; manifests stay local.
+
+    The root landing page is always included. This means publishing after the
+    final local demo is removed also clears old remote demo paths on Netlify.
+    """
 
     root = Path(output_root)
     if not root.exists() or not root.is_dir():
-        raise DemoPublishError("No generated demo directory was found to publish.")
+        raise DemoPublishError("No demo output directory was found to publish.")
 
     pages: list[tuple[str, Path]] = []
     for directory in sorted(root.iterdir(), key=lambda item: item.name):
@@ -143,11 +163,9 @@ def build_publish_archive(output_root: str | Path) -> bytes:
         if index_path.is_file():
             pages.append((directory.name, index_path))
 
-    if not pages:
-        raise DemoPublishError("No generated demo HTML file was found to publish.")
-
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("index.html", ROOT_INDEX_HTML)
         archive.writestr("robots.txt", "User-agent: *\nDisallow: /\n")
         for slug, index_path in pages:
             archive.writestr(f"{slug}/index.html", index_path.read_bytes())
@@ -162,7 +180,10 @@ def public_demo_url(base_url: str, slug: str) -> str:
     if parsed.scheme != "https" or not parsed.netloc:
         raise ValueError("base_url must be an absolute HTTPS URL.")
     normalized_slug = slug.strip().strip("/")
-    if not normalized_slug or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-" for character in normalized_slug):
+    if not normalized_slug or any(
+        character not in "abcdefghijklmnopqrstuvwxyz0123456789-"
+        for character in normalized_slug
+    ):
         raise ValueError("slug is not safe for a public demo URL.")
     return f"{base}/{normalized_slug}/"
 
