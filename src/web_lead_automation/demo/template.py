@@ -81,6 +81,18 @@ def render_demo_html(context: DemoTemplateContext) -> str:
         '<span class="brand-mark">$brand_initial</span>',
         1,
     )
+    # Bind reviewed AI CTA copy without making the static base template depend
+    # on the AI schema itself.
+    template_text = template_text.replace(
+        "WhatsApp'tan Yazın",
+        "$primary_cta_text",
+        1,
+    )
+    template_text = template_text.replace(
+        "Telefonla Ulaşın",
+        "$secondary_cta_text",
+        1,
+    )
     # The default HTML remains independent of sectors. A second style block
     # overrides only trusted palette variables/selectors from our own presets.
     theme_style = (
