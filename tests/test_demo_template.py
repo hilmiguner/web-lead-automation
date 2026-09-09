@@ -3,6 +3,7 @@ import pytest
 from web_lead_automation.demo import (
     DemoService,
     DemoTemplateContext,
+    ThemeKey,
     render_demo_html,
 )
 
@@ -87,3 +88,28 @@ def test_render_requires_at_least_one_service() -> None:
 def test_render_rejects_blank_required_content() -> None:
     with pytest.raises(ValueError, match="hero_title must not be empty"):
         render_demo_html(_context(hero_title="   "))
+
+
+def test_render_automatically_applies_sector_theme() -> None:
+    html = render_demo_html(_context())
+
+    assert 'data-demo-theme="hair_beauty"' in html
+    assert "--accent: #a855f7" in html
+    assert "Bakım, stil ve randevu odaklı deneyim" in html
+
+
+def test_render_allows_explicit_trusted_theme_override() -> None:
+    html = render_demo_html(_context(theme=ThemeKey.AUTOMOTIVE))
+
+    assert 'data-demo-theme="automotive"' in html
+    assert "--accent: #2563eb" in html
+
+
+def test_render_supports_short_text_brand_mark() -> None:
+    html = render_demo_html(_context(brand_mark_text="ÖK"))
+    assert '<span class="brand-mark">ÖK</span>' in html
+
+
+def test_render_rejects_long_brand_mark() -> None:
+    with pytest.raises(ValueError, match="at most 3 characters"):
+        render_demo_html(_context(brand_mark_text="UZUN"))
