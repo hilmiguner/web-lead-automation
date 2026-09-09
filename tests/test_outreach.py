@@ -87,7 +87,7 @@ def test_business_and_sector_values_are_normalized_to_single_line() -> None:
 
     direct = bundle.whatsapp_messages[2].text
     assert "Örnek Kuaför" in direct
-    assert "güzellik merkezi işletmeniz" in direct
+    assert "güzellik merkezi sektörüne uygun" in direct
 
 
 def test_blank_business_name_is_rejected() -> None:
