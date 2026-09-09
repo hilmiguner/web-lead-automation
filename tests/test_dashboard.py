@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from web_lead_automation.dashboard import (
     apply_tracked_state,
+    filter_leads,
     find_lead_by_place_id,
     lead_detail_label,
     lead_rows,
@@ -26,6 +27,9 @@ def _lead(
     status: LeadStatus = LeadStatus.NEW,
     seen_before: bool = False,
     note: str = "",
+    score: int = 100,
+    phone: str | None = "0224 000 00 00",
+    website_status: WebsiteStatus = WebsiteStatus.NO_WEBSITE_LISTED,
 ) -> LeadWithHistory:
     now = datetime.now(timezone.utc)
     return LeadWithHistory(
@@ -34,14 +38,14 @@ def _lead(
                 place_id=place_id,
                 display_name=name,
                 formatted_address="Gemlik, Bursa",
-                national_phone_number="0224 000 00 00",
+                national_phone_number=phone,
                 rating=4.7,
                 user_rating_count=120,
                 types=("hair_salon",),
                 google_maps_uri="https://maps.google.com/example",
             ),
-            score=100,
-            website_status=WebsiteStatus.NO_WEBSITE_LISTED,
+            score=score,
+            website_status=website_status,
             reasons=(ScoreReason("website", 40, "No website (+40)."),),
         ),
         seen_before=seen_before,
@@ -80,6 +84,60 @@ def test_lead_rows_exposes_sales_columns_without_persisting_place_data() -> None
 def test_lead_rows_marks_previously_seen_leads() -> None:
     row = lead_rows((_lead(seen_before=True),))[0]
     assert row["Daha Önce Görüldü"] == "Evet"
+
+
+def test_filter_leads_applies_minimum_score() -> None:
+    strong = _lead(place_id="strong", score=90)
+    weak = _lead(place_id="weak", score=55)
+
+    filtered = filter_leads((strong, weak), min_score=70)
+
+    assert [item.lead.place.place_id for item in filtered] == ["strong"]
+
+
+def test_filter_leads_can_require_phone_number() -> None:
+    with_phone = _lead(place_id="with-phone")
+    without_phone = _lead(place_id="without-phone", phone=None)
+
+    filtered = filter_leads((with_phone, without_phone), phone_only=True)
+
+    assert [item.lead.place.place_id for item in filtered] == ["with-phone"]
+
+
+def test_filter_leads_can_filter_crm_statuses() -> None:
+    new = _lead(place_id="new", status=LeadStatus.NEW)
+    interested = _lead(place_id="interested", status=LeadStatus.INTERESTED)
+    won = _lead(place_id="won", status=LeadStatus.WON)
+
+    filtered = filter_leads(
+        (new, interested, won),
+        statuses=(LeadStatus.INTERESTED, LeadStatus.WON),
+    )
+
+    assert [item.lead.place.place_id for item in filtered] == ["interested", "won"]
+
+
+def test_filter_leads_can_require_no_website_status() -> None:
+    no_website = _lead(place_id="no-site")
+    has_website = _lead(
+        place_id="has-site",
+        website_status=WebsiteStatus.HAS_WEBSITE,
+    )
+
+    filtered = filter_leads((no_website, has_website), website_only=True)
+
+    assert [item.lead.place.place_id for item in filtered] == ["no-site"]
+    assert len(filter_leads((no_website, has_website), website_only=False)) == 2
+
+
+def test_filter_leads_preserves_existing_ranking_order() -> None:
+    first = _lead(place_id="first", score=95)
+    second = _lead(place_id="second", score=85)
+    third = _lead(place_id="third", score=75)
+
+    filtered = filter_leads((first, second, third), min_score=80)
+
+    assert [item.lead.place.place_id for item in filtered] == ["first", "second"]
 
 
 def test_lead_detail_label_includes_name_score_and_status() -> None:
