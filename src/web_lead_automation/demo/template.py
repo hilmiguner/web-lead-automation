@@ -35,6 +35,8 @@ class DemoTemplateContext:
     maps_url: str | None = None
     seo_title: str | None = None
     seo_description: str | None = None
+    primary_cta_text: str = "WhatsApp'tan Yazın"
+    secondary_cta_text: str = "Telefonla Ulaşın"
     theme: ThemeKey | str | None = None
     place_types: tuple[str, ...] = ()
     brand_mark_text: str | None = None
@@ -54,6 +56,8 @@ def render_demo_html(context: DemoTemplateContext) -> str:
     hero_title = _required(context.hero_title, "hero_title")
     hero_text = _required(context.hero_text, "hero_text")
     about_text = _required(context.about_text, "about_text")
+    primary_cta_text = _required(context.primary_cta_text, "primary_cta_text")
+    secondary_cta_text = _required(context.secondary_cta_text, "secondary_cta_text")
 
     services = tuple(context.services)
     if not services:
@@ -114,13 +118,13 @@ def render_demo_html(context: DemoTemplateContext) -> str:
         "seo_title": escape(seo_title),
         "seo_description": escape(seo_description, quote=True),
         "business_name": escape(business_name),
-        "brand_initial": escape(
-            _brand_mark(context.brand_mark_text, business_name)
-        ),
+        "brand_initial": escape(_brand_mark(context.brand_mark_text, business_name)),
         "sector": escape(sector),
         "hero_title": escape(hero_title),
         "hero_text": escape(hero_text),
         "about_text": escape(about_text),
+        "primary_cta_text": escape(primary_cta_text),
+        "secondary_cta_text": escape(secondary_cta_text),
         "visual_label": escape(theme.visual_label),
         "service_cards": _render_service_cards(services),
         "phone_display": escape(phone_display or "Telefon bilgisi eklenecek"),
