@@ -43,7 +43,9 @@ def generate_outreach_bundle(
     normalized_demo_url = _https_url_or_none(demo_url)
     shared_url = normalized_demo_url if include_demo_link else None
 
-    sector_phrase = f" {normalized_sector} işletmeniz" if normalized_sector else " işletmeniz"
+    sector_phrase = (
+        f" {normalized_sector} sektörüne uygun" if normalized_sector else ""
+    )
     link_block = f"\n\nDemo: {shared_url}" if shared_url else ""
 
     standard = OutreachMessage(
@@ -71,7 +73,7 @@ def generate_outreach_bundle(
         key="direct",
         label="Doğrudan",
         text=(
-            f"Merhaba, {name}{sector_phrase} için mobil uyumlu tek sayfalık bir demo "
+            f"Merhaba, {name} için{sector_phrase} mobil uyumlu tek sayfalık bir demo "
             "hazırladım. Bu, yalnızca satış öncesi örnek önizlemedir ve işletmeniz adına "
             f"yayınlanmış resmi bir web sitesi değildir.{link_block}\n\n"
             "Uygun görürseniz siteyi size özel hale getirip yayına alabiliriz."
