@@ -23,19 +23,32 @@ def _demo_tree(tmp_path):
     return tmp_path
 
 
-def test_publish_archive_contains_only_public_html_and_robots(tmp_path) -> None:
+def test_publish_archive_contains_only_public_html_and_hub_files(tmp_path) -> None:
     archive_bytes = build_publish_archive(_demo_tree(tmp_path))
 
     with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
         names = set(archive.namelist())
-        assert names == {"robots.txt", "demo-one/index.html", "demo-two/index.html"}
+        assert names == {
+            "index.html",
+            "robots.txt",
+            "demo-one/index.html",
+            "demo-two/index.html",
+        }
         assert "demo-one/demo.json" not in names
         assert "Disallow: /" in archive.read("robots.txt").decode("utf-8")
+        assert "Demo Önizlemeleri" in archive.read("index.html").decode("utf-8")
 
 
-def test_publish_archive_requires_at_least_one_demo(tmp_path) -> None:
-    with pytest.raises(DemoPublishError, match="No generated demo HTML"):
-        build_publish_archive(tmp_path)
+def test_publish_archive_can_sync_empty_demo_hub_after_cleanup(tmp_path) -> None:
+    archive_bytes = build_publish_archive(tmp_path)
+
+    with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+        assert set(archive.namelist()) == {"index.html", "robots.txt"}
+
+
+def test_publish_archive_requires_output_directory(tmp_path) -> None:
+    with pytest.raises(DemoPublishError, match="No demo output directory"):
+        build_publish_archive(tmp_path / "missing")
 
 
 def test_netlify_publish_returns_ready_https_site(tmp_path) -> None:
