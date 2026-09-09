@@ -199,25 +199,25 @@ Preview / paylaşılabilir demo
 
 ## M4.2 — AI içerik üretimi
 
-- [ ] LLM API entegrasyonu
-- [ ] İşletme adı ve sektöründen hero başlığı üret
-- [ ] Kısa işletme tanıtımı üret
-- [ ] Hizmet başlıkları ve açıklamaları üret
-- [ ] CTA metinleri üret
-- [ ] SEO title / description taslağı üret
-- [ ] Sektöre uygun ton belirle
-- [ ] Halüsinasyonları azaltmak için bilinmeyen gerçekleri uydurmama kuralı
-- [ ] Üretilen içeriği kullanıcıya düzenlet
+- [x] LLM API entegrasyonu
+- [x] İşletme adı ve sektöründen hero başlığı üret
+- [x] Kısa işletme tanıtımı üret
+- [x] Hizmet başlıkları ve açıklamaları üret
+- [x] CTA metinleri üret
+- [x] SEO title / description taslağı üret
+- [x] Sektöre uygun ton belirle
+- [x] Halüsinasyonları azaltmak için bilinmeyen gerçekleri uydurmama kuralı
+- [x] Üretilen içeriği kullanıcıya düzenlet
 
 AI yalnızca bilinen işletme verisini ve güvenli genel sektör bilgisini kullanmalı. İşletmenin sahip olmadığı hizmetler, ödüller, müşteri sayıları veya doğrulanmamış iddialar gerçekmiş gibi yazılmamalıdır.
 
 ## M4.3 — Görsel ve tema kişiselleştirme
 
-- [ ] Sektöre göre tema / stil preset'i seç
-- [ ] Renk paleti önerisi
-- [ ] İşletme adı / logo alanı
-- [ ] Demo için güvenli placeholder veya lisansı uygun görsel desteği
-- [ ] İzinsiz işletme fotoğraflarını kalıcı olarak kopyalamama
+- [x] Sektöre göre tema / stil preset'i seç
+- [x] Renk paleti önerisi
+- [x] İşletme adı / logo alanı
+- [x] Demo için güvenli placeholder veya lisansı uygun görsel desteği
+- [x] İzinsiz işletme fotoğraflarını kalıcı olarak kopyalamama
 
 MVP için özel AI görsel üretimi zorunlu değildir; satış dönüşümüne etkisi kanıtlanırsa daha sonra eklenir.
 
@@ -239,11 +239,11 @@ Dosyaları oluştur
 Preview aç
 ```
 
-- [ ] `Demo Oluştur` aksiyonu
-- [ ] Lead başına ayrı demo slug / klasör
-- [ ] Tekrar üretme desteği
-- [ ] Kullanıcı düzenlemelerini koruyabilecek basit yapı
-- [ ] Oluşturma hatalarını anlaşılır göster
+- [x] `Demo Oluştur` aksiyonu
+- [x] Lead başına ayrı demo slug / klasör
+- [x] Tekrar üretme desteği
+- [x] Kullanıcı düzenlemelerini koruyabilecek basit yapı
+- [x] Oluşturma hatalarını anlaşılır göster
 
 ## M4.5 — Preview ve paylaşım
 

@@ -68,6 +68,11 @@ Başlangıç bölgesi: **Gemlik → Bursa → yakın ilçeler**.
 - Kuaför/güzellik, otomotiv, emlak, lojistik, etkinlik, yapı ve genel kurumsal paletler
 - Harici işletme fotoğrafı kopyalamadan CSS tabanlı güvenli placeholder görseller
 - Kısa monogram / marka alanı desteği
+- Dashboard üzerinden `Demo Oluştur / Yeniden Oluştur` akışı
+- Lead başına deterministik ve dosya sistemi güvenli demo klasörü
+- Her demo için self-contained `index.html` ve düzenlenebilir kaynak manifesti `demo.json`
+- Aynı lead yeniden üretildiğinde aynı klasörün güncellenmesi
+- Uygulama yeniden açıldığında son üretilen AI içerik/theme taslağının `demo.json` üzerinden geri yüklenebilmesi
 
 ## Kurulum
 
@@ -101,6 +106,7 @@ OPENAI_MODEL=gpt-5.6-luna
 OPENAI_TIMEOUT_SECONDS=30
 
 LEAD_DB_PATH=data/leads.sqlite3
+DEMO_OUTPUT_PATH=data/demos
 ```
 
 OpenAI API kullanımı ChatGPT aboneliğinden ayrı bir API anahtarı ve API hesabı gerektirir. Model `OPENAI_MODEL` ile değiştirilebilir. Varsayılan `gpt-5.6-luna`, demo metni gibi yüksek hacimli ve maliyet duyarlı işler için seçilmiştir.
@@ -125,8 +131,13 @@ Tarayıcıda açılan ekranda:
 6. Bir lead seç ve CRM durumunu / notunu güncelle.
 7. `AI İçerik Taslağı Üret` alanında yalnızca doğruladığın hizmetleri opsiyonel olarak gir.
 8. Üretilen hero, hakkında, kart, CTA ve SEO metinlerini kontrol edip düzenle.
+9. Güvenli tema presetini ve istersen kısa marka işaretini seç.
+10. `Demo Oluştur / Yeniden Oluştur` butonuna bas.
+11. Oluşan `data/demos/<lead-slug>/index.html` dosyasını kullan.
 
-AI içerik taslağı henüz site dosyası oluşturmaz veya deploy etmez. Bu bağlantı M4.4–M4.5 aşamalarında eklenecektir.
+Her lead için ayrıca `demo.json` oluşturulur. Bu dosya insan tarafından kontrol edilmiş içerik, theme seçimi ve demo üretim girdilerini saklar; aynı lead daha sonra tekrar açıldığında taslak geri yüklenebilir.
+
+M4.4 sonunda statik site dosyası üretilmektedir. **Local preview sunucusu ve paylaşılabilir deployment/link üretimi M4.5 kapsamındadır.**
 
 İlk kullanım için önerilen sorgular:
 
@@ -193,14 +204,16 @@ Sektöre göre trusted theme preset
    ↓
 Test edilmiş landing page template
    ↓
-Kişiselleştirilmiş demo
+Lead'e özel index.html + demo.json
    ↓
-Preview linki
+Preview / paylaşılabilir link
 ```
 
 AI içerik katmanı işletmenin sahip olmadığı hizmetleri, ödülleri, faaliyet süresini, müşteri sayılarını, referansları, fiyatları veya garantileri gerçekmiş gibi üretmemesi için sınırlandırılmıştır. Doğrulanmış hizmet girilmezse hizmet kartları tarafsız bilgi ve iletişim metinlerine dönmelidir.
 
 Tema katmanında model veya kullanıcıdan keyfi CSS kabul edilmez. Yalnızca uygulama içinde tanımlanmış presetler kullanılabilir. MVP görselleri harici işletme fotoğraflarını kalıcı olarak kopyalamak yerine CSS tabanlı soyut placeholder alanları kullanır.
+
+Demo klasör adı işletme adından okunabilir bir slug ve Place ID'nin tek yönlü kısa hash'i ile oluşturulur. Tam Place ID klasör adına yazılmaz. Aynı lead için yeniden üretim yeni kopya oluşturmak yerine mevcut demo klasörünü günceller.
 
 İlk hedef, bir lead için **5 dakikanın altında insan müdahalesiyle** satışta kullanılabilecek demo hazırlamaktır.
 

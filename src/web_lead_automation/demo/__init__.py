@@ -1,5 +1,13 @@
-"""Website demo template primitives."""
+"""Website demo generation primitives."""
 
+from web_lead_automation.demo.generator import (
+    DemoGenerationError,
+    DemoGenerationRequest,
+    DemoGenerator,
+    GeneratedDemo,
+    SavedDemoDraft,
+    demo_slug,
+)
 from web_lead_automation.demo.template import (
     DemoService,
     DemoTemplateContext,
@@ -14,11 +22,17 @@ from web_lead_automation.demo.theme import (
 )
 
 __all__ = [
+    "DemoGenerationError",
+    "DemoGenerationRequest",
+    "DemoGenerator",
     "DemoService",
     "DemoTemplateContext",
     "DemoTheme",
+    "GeneratedDemo",
+    "SavedDemoDraft",
     "THEMES",
     "ThemeKey",
+    "demo_slug",
     "recommend_theme",
     "render_demo_html",
     "resolve_theme",
