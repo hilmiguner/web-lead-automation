@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 
 from web_lead_automation.dashboard import (
+    ai_content_session_key,
     apply_tracked_state,
     filter_leads,
     find_lead_by_place_id,
     lead_detail_label,
     lead_rows,
+    parse_known_services,
     replace_result_lead,
     resolve_location_query,
     resolve_sector_query,
@@ -68,6 +70,16 @@ def test_resolve_sector_query_uses_custom_value() -> None:
 
 def test_resolve_location_query_uses_custom_value() -> None:
     assert resolve_location_query("Özel bölge yaz", " Mudanya Bursa ") == "Mudanya Bursa"
+
+
+def test_parse_known_services_normalizes_and_deduplicates() -> None:
+    assert parse_known_services(
+        " Saç kesimi, Sakal tıraşı\nsaç kesimi; Fön "
+    ) == ("Saç kesimi", "Sakal tıraşı", "Fön")
+
+
+def test_ai_content_session_key_is_scoped_to_place() -> None:
+    assert ai_content_session_key("place-123") == "ai_content:place-123"
 
 
 def test_lead_rows_exposes_sales_columns_without_persisting_place_data() -> None:
