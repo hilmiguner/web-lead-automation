@@ -122,14 +122,14 @@ Uygulama kapatılıp yeniden açıldığında satış pipeline bilgileri kaybolm
 
 ## M3.1 — Streamlit arayüz
 
-- [ ] Bölge input'u
-- [ ] Sektör input'u / preset seçenekleri
-- [ ] `Lead Ara` butonu
-- [ ] Sonuç tablosu
-- [ ] Lead score sıralaması
-- [ ] Website durumu
-- [ ] Telefon varlığı
-- [ ] Rating / yorum bilgisi
+- [x] Bölge input'u
+- [x] Sektör input'u / preset seçenekleri
+- [x] `Lead Ara` butonu
+- [x] Sonuç tablosu
+- [x] Lead score sıralaması
+- [x] Website durumu
+- [x] Telefon varlığı
+- [x] Rating / yorum bilgisi
 
 ## M3.2 — Lead detay ekranı
 
