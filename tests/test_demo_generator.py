@@ -87,6 +87,42 @@ def test_generate_writes_html_and_manifest_with_reviewed_content(tmp_path) -> No
     assert manifest["content"]["hero_title"] == "Gemlik'te bakım için kolay iletişim"
 
 
+def test_find_index_path_returns_existing_demo(tmp_path) -> None:
+    generator = DemoGenerator(tmp_path)
+    generated = generator.generate(_request())
+
+    found = generator.find_index_path(
+        external_place_id="ChIJ-example-place-id",
+        business_name="Örnek Kuaför & Bakım",
+    )
+
+    assert found == generated.index_path
+
+
+def test_remove_demo_deletes_only_target_lead_folder(tmp_path) -> None:
+    generator = DemoGenerator(tmp_path)
+    target = generator.generate(_request())
+    other = generator.generate(
+        _request(
+            external_place_id="place-other",
+            business_name="Başka İşletme",
+        )
+    )
+
+    removed = generator.remove_demo(
+        external_place_id="ChIJ-example-place-id",
+        business_name="Örnek Kuaför & Bakım",
+    )
+
+    assert removed is True
+    assert not target.directory.exists()
+    assert other.directory.exists()
+    assert generator.remove_demo(
+        external_place_id="ChIJ-example-place-id",
+        business_name="Örnek Kuaför & Bakım",
+    ) is False
+
+
 def test_regenerate_reuses_same_folder_and_replaces_reviewed_content(tmp_path) -> None:
     generator = DemoGenerator(tmp_path)
     first = generator.generate(_request())

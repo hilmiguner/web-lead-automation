@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 from typing import Iterable
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from web_lead_automation.config import Settings, get_settings
 from web_lead_automation.demo import (
@@ -15,6 +17,11 @@ from web_lead_automation.demo import (
     DemoGenerator,
     ThemeKey,
     recommend_theme,
+)
+from web_lead_automation.demo.publish import (
+    DemoPublishError,
+    NetlifyPublisher,
+    public_demo_url,
 )
 from web_lead_automation.services.ai_content import (
     AIContentError,
@@ -42,6 +49,7 @@ SELECTED_PLACE_SESSION_KEY = "selected_place_id"
 FLASH_SESSION_KEY = "crm_flash_message"
 AI_CONTENT_SESSION_PREFIX = "ai_content:"
 DEMO_PATH_SESSION_PREFIX = "demo_path:"
+DEMO_PREVIEW_SESSION_PREFIX = "demo_preview_open:"
 
 SECTOR_PRESETS = (
     "Kuaför / Berber",
@@ -115,6 +123,12 @@ def demo_path_session_key(place_id: str) -> str:
     """Return a stable per-lead session key for the latest generated demo path."""
 
     return f"{DEMO_PATH_SESSION_PREFIX}{place_id}"
+
+
+def demo_preview_session_key(place_id: str) -> str:
+    """Return a stable per-lead session key for local preview visibility."""
+
+    return f"{DEMO_PREVIEW_SESSION_PREFIX}{place_id}"
 
 
 def lead_rows(leads: Iterable[LeadWithHistory]) -> list[dict[str, object]]:
@@ -441,13 +455,17 @@ def _render_lead_detail(
         st.write("**Daha önce iletişim:** " + ("Evet" if selected.was_contacted else "Hayır"))
         st.write(f"**İlk görüldü:** {selected.first_seen_at:%Y-%m-%d %H:%M UTC}")
 
+    tracked = repository.get_by_place_id(place.place_id)
+    if tracked and tracked.demo_url:
+        st.link_button("Paylaşılabilir Demo Linkini Aç", tracked.demo_url)
+
     if place.google_maps_uri:
         st.link_button("Google Maps'te Aç", place.google_maps_uri)
     with st.expander("Skor açıklaması", expanded=True):
         for reason in selected.lead.reasons:
             st.write(f"- {reason.message}")
 
-    _render_ai_content_draft(selected, settings)
+    _render_ai_content_draft(selected, settings, repository)
     _render_crm(selected, result, repository)
 
 
@@ -458,7 +476,12 @@ def _render_crm(
 ) -> None:
     place = selected.lead.place
     place_id = place.place_id
+    tracked = repository.get_by_place_id(place_id)
+
     st.markdown("#### CRM")
+    if tracked and tracked.demo_url:
+        st.write(f"**Demo URL:** {tracked.demo_url}")
+
     with st.form(f"crm_form_{place_id}"):
         status_values = [status.value for status in LeadStatus]
         selected_status = st.selectbox(
@@ -497,8 +520,12 @@ def _render_crm(
     st.rerun()
 
 
-def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> None:
-    """Generate/edit AI copy, then materialize it as a local static demo."""
+def _render_ai_content_draft(
+    selected: LeadWithHistory,
+    settings: Settings,
+    repository: LeadRepository,
+) -> None:
+    """Generate/edit AI copy, then materialize and share a static demo."""
 
     place = selected.lead.place
     place_id = place.place_id
@@ -506,6 +533,13 @@ def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> N
     content_key = ai_content_session_key(place_id)
     path_key = demo_path_session_key(place_id)
     generator = DemoGenerator(settings.demo_output_path)
+
+    existing_index = generator.find_index_path(
+        external_place_id=place_id,
+        business_name=business_name,
+    )
+    if existing_index is not None and not st.session_state.get(path_key):
+        st.session_state[path_key] = str(existing_index.resolve())
 
     saved_draft = None
     content = st.session_state.get(content_key)
@@ -525,7 +559,8 @@ def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> N
     st.divider()
     st.subheader("AI demo içeriği")
     st.caption(
-        "İçeriği üret veya düzenle; ardından aynı lead klasöründe statik demo dosyalarını oluştur."
+        "İçeriği üret veya düzenle; ardından demoyu oluştur, local olarak önizle "
+        "ve istersen paylaşılabilir HTTPS linki yayınla."
     )
 
     fallback_sector = place.types[0].replace("_", " ") if place.types else "yerel işletme"
@@ -594,6 +629,7 @@ def _render_ai_content_draft(selected: LeadWithHistory, settings: Settings) -> N
     _render_demo_generation_controls(
         selected=selected,
         settings=settings,
+        repository=repository,
         sector=sector,
         content=content,
         saved_theme=saved_draft.theme_key if saved_draft else None,
@@ -674,15 +710,18 @@ def _render_demo_generation_controls(
     *,
     selected: LeadWithHistory,
     settings: Settings,
+    repository: LeadRepository,
     sector: str,
     content: DemoAIContent,
     saved_theme: ThemeKey | None,
     saved_brand_mark: str | None,
     path_key: str,
 ) -> None:
-    """Render M4.4 controls and write the reviewed static demo to disk."""
+    """Render demo generation, preview, sharing and cleanup controls."""
 
     place = selected.lead.place
+    business_name = place.display_name or place.place_id
+    generator = DemoGenerator(settings.demo_output_path)
     recommended = recommend_theme(sector, place_types=tuple(place.types))
     default_theme = saved_theme or recommended.key
     theme_values = [key.value for key in ThemeKey]
@@ -711,10 +750,10 @@ def _render_demo_generation_controls(
         key=f"generate_demo_{place.place_id}",
     ):
         try:
-            generated = DemoGenerator(settings.demo_output_path).generate(
+            generated = generator.generate(
                 DemoGenerationRequest(
                     external_place_id=place.place_id,
-                    business_name=place.display_name or place.place_id,
+                    business_name=business_name,
                     sector=sector,
                     content=content,
                     phone_number=place.national_phone_number,
@@ -732,12 +771,178 @@ def _render_demo_generation_controls(
             action = "yeniden oluşturuldu" if generated.regenerated else "oluşturuldu"
             st.success(f"Demo {action}: {generated.slug}")
 
-    generated_path = st.session_state.get(path_key)
-    if generated_path:
-        st.code(str(generated_path), language=None)
-        st.caption(
-            "Statik `index.html` hazır. Local preview ve paylaşılabilir deployment M4.5'te bağlanacak."
+    generated_path_value = st.session_state.get(path_key)
+    if not generated_path_value:
+        existing = generator.find_index_path(
+            external_place_id=place.place_id,
+            business_name=business_name,
         )
+        if existing is not None:
+            generated_path_value = str(existing.resolve())
+            st.session_state[path_key] = generated_path_value
+
+    if not generated_path_value:
+        return
+
+    generated_path = Path(str(generated_path_value))
+    if not generated_path.is_file():
+        st.session_state.pop(path_key, None)
+        return
+
+    slug = generated_path.parent.name
+    st.code(str(generated_path), language=None)
+
+    preview_key = demo_preview_session_key(place.place_id)
+    preview_col, publish_col, cleanup_col = st.columns(3)
+    with preview_col:
+        if st.button(
+            "Local Preview Aç / Kapat",
+            key=f"toggle_preview_{place.place_id}",
+            use_container_width=True,
+        ):
+            st.session_state[preview_key] = not bool(st.session_state.get(preview_key))
+
+    netlify_ready = bool(settings.netlify_auth_token and settings.netlify_site_id)
+    with publish_col:
+        publish_requested = st.button(
+            "Paylaşılabilir Demo Yayınla",
+            key=f"publish_demo_{place.place_id}",
+            disabled=not netlify_ready,
+            use_container_width=True,
+        )
+
+    with cleanup_col:
+        cleanup_requested = st.button(
+            "Demo Dosyalarını Temizle",
+            key=f"cleanup_demo_{place.place_id}",
+            use_container_width=True,
+        )
+
+    if not netlify_ready:
+        st.caption(
+            "Public paylaşım için `.env` içine `NETLIFY_AUTH_TOKEN` ve `NETLIFY_SITE_ID` ekle. "
+            "Local preview bu ayarlara ihtiyaç duymaz."
+        )
+
+    if publish_requested:
+        _publish_selected_demo(
+            selected=selected,
+            settings=settings,
+            repository=repository,
+            slug=slug,
+        )
+
+    tracked = repository.get_by_place_id(place.place_id)
+    if tracked and tracked.demo_url:
+        st.success(f"Paylaşılabilir demo: {tracked.demo_url}")
+        st.link_button("Public Demoyu Aç", tracked.demo_url)
+
+    if cleanup_requested:
+        _cleanup_selected_demo(
+            selected=selected,
+            settings=settings,
+            repository=repository,
+            generator=generator,
+            path_key=path_key,
+            preview_key=preview_key,
+        )
+        return
+
+    if st.session_state.get(preview_key):
+        try:
+            preview_html = generated_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            st.error(f"Local preview dosyası okunamadı: {exc}")
+        else:
+            st.markdown("##### Local Preview")
+            components.html(preview_html, height=900, scrolling=True)
+
+
+def _publish_selected_demo(
+    *,
+    selected: LeadWithHistory,
+    settings: Settings,
+    repository: LeadRepository,
+    slug: str,
+) -> None:
+    """Publish the shared demo hub and persist this lead's stable public URL."""
+
+    if not settings.netlify_auth_token or not settings.netlify_site_id:
+        st.error("Netlify paylaşım ayarları eksik.")
+        return
+
+    try:
+        with st.spinner("Demo Netlify'a yayınlanıyor..."):
+            with NetlifyPublisher(
+                auth_token=settings.netlify_auth_token,
+                site_id=settings.netlify_site_id,
+                timeout_seconds=settings.netlify_timeout_seconds,
+            ) as publisher:
+                deployment = publisher.publish(settings.demo_output_path)
+            demo_url = public_demo_url(deployment.base_url, slug)
+            repository.update_demo_url(selected.lead.place.place_id, demo_url)
+    except (DemoPublishError, ValueError) as exc:
+        st.error(str(exc))
+        return
+
+    st.success("Demo yayınlandı ve link CRM kaydına bağlandı.")
+
+
+def _cleanup_selected_demo(
+    *,
+    selected: LeadWithHistory,
+    settings: Settings,
+    repository: LeadRepository,
+    generator: DemoGenerator,
+    path_key: str,
+    preview_key: str,
+) -> None:
+    """Remove a lead's local demo and, when configured, synchronize remote removal."""
+
+    place = selected.lead.place
+    business_name = place.display_name or place.place_id
+    tracked = repository.get_by_place_id(place.place_id)
+
+    try:
+        removed = generator.remove_demo(
+            external_place_id=place.place_id,
+            business_name=business_name,
+        )
+    except DemoGenerationError as exc:
+        st.error(str(exc))
+        return
+
+    st.session_state.pop(path_key, None)
+    st.session_state.pop(preview_key, None)
+    if not removed:
+        st.info("Bu lead için local demo dosyası zaten bulunmuyor.")
+        return
+
+    if tracked and tracked.demo_url:
+        if settings.netlify_auth_token and settings.netlify_site_id:
+            try:
+                with st.spinner("Public demo hub temizlenen dosyalarla senkronize ediliyor..."):
+                    with NetlifyPublisher(
+                        auth_token=settings.netlify_auth_token,
+                        site_id=settings.netlify_site_id,
+                        timeout_seconds=settings.netlify_timeout_seconds,
+                    ) as publisher:
+                        publisher.publish(settings.demo_output_path)
+                repository.update_demo_url(place.place_id, None)
+            except (DemoPublishError, ValueError) as exc:
+                st.warning(
+                    "Local demo silindi ancak public Netlify kopyası temizlenemedi. "
+                    f"CRM linki korunuyor. Hata: {exc}"
+                )
+                return
+        else:
+            st.warning(
+                "Local demo silindi. Netlify ayarları bulunmadığı için daha önce yayınlanmış "
+                "public kopya otomatik temizlenmedi ve CRM linki korundu."
+            )
+            return
+
+    st.success("Demo dosyaları temizlendi; varsa public kopya da senkronize edildi.")
 
 
 def main() -> None:

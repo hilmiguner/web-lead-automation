@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     lead_db_path: Path = Path("data/leads.sqlite3")
     demo_output_path: Path = Path("data/demos")
 
+    netlify_auth_token: str | None = Field(default=None, repr=False)
+    netlify_site_id: str | None = Field(default=None, repr=False)
+    netlify_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

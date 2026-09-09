@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -158,6 +159,38 @@ class DemoGenerator:
             theme_key=theme.key,
             regenerated=regenerated,
         )
+
+    def find_index_path(
+        self,
+        *,
+        external_place_id: str,
+        business_name: str,
+    ) -> Path | None:
+        """Return an existing local demo index path for one lead."""
+
+        place_id = _required(external_place_id, "external_place_id")
+        name = _required(business_name, "business_name")
+        index_path = self._output_root / demo_slug(name, place_id) / "index.html"
+        return index_path if index_path.is_file() else None
+
+    def remove_demo(
+        self,
+        *,
+        external_place_id: str,
+        business_name: str,
+    ) -> bool:
+        """Delete one deterministic local demo directory, if it exists."""
+
+        place_id = _required(external_place_id, "external_place_id")
+        name = _required(business_name, "business_name")
+        directory = self._output_root / demo_slug(name, place_id)
+        if not directory.exists():
+            return False
+        try:
+            shutil.rmtree(directory)
+        except OSError as exc:
+            raise DemoGenerationError(f"Demo directory could not be removed: {directory}.") from exc
+        return True
 
     def load_saved_draft(
         self,

@@ -21,7 +21,9 @@ CRM durumunu kaydet
         ↓
 AI ile kişiselleştirilmiş demo site oluştur
         ↓
-Paylaşılabilir preview al
+Local preview kontrol et
+        ↓
+Paylaşılabilir HTTPS demo linki yayınla
         ↓
 Demo linkli satış mesajı hazırla
         ↓
@@ -39,6 +41,7 @@ Başlangıç bölgesi: **Gemlik → Bursa → yakın ilçeler**.
 | Veri | SQLite |
 | İşletme keşfi | Google Places API (New) |
 | AI içerik | OpenAI Responses API |
+| Demo paylaşımı | Netlify Deploy API |
 | HTTP | httpx |
 | Konfigürasyon | pydantic-settings |
 | Test | pytest |
@@ -73,6 +76,12 @@ Başlangıç bölgesi: **Gemlik → Bursa → yakın ilçeler**.
 - Her demo için self-contained `index.html` ve düzenlenebilir kaynak manifesti `demo.json`
 - Aynı lead yeniden üretildiğinde aynı klasörün güncellenmesi
 - Uygulama yeniden açıldığında son üretilen AI içerik/theme taslağının `demo.json` üzerinden geri yüklenebilmesi
+- Streamlit içinde tek tıkla local demo preview
+- Netlify Deploy API üzerinden paylaşılabilir HTTPS demo linki
+- Public demo URL'sini SQLite CRM'e bağlama
+- Public deploy'da yalnızca `index.html` dosyalarını yayınlama; `demo.json` local kalır
+- Demo hub için `robots.txt` ile arama motoru taramasını engelleme
+- Lead bazlı local demo temizleme ve Netlify yapılandırılmışsa public kopyayı senkronize etme
 
 ## Kurulum
 
@@ -91,7 +100,7 @@ pip install -e ".[dev]"
 Copy-Item .env.example .env
 ```
 
-`.env` içinde Google Places ve AI içerik üretimi için gerekli API ayarlarını tanımla:
+`.env` içinde Google Places, AI içerik üretimi ve opsiyonel public demo paylaşımı için gerekli ayarları tanımla:
 
 ```env
 APP_ENV=development
@@ -107,6 +116,10 @@ OPENAI_TIMEOUT_SECONDS=30
 
 LEAD_DB_PATH=data/leads.sqlite3
 DEMO_OUTPUT_PATH=data/demos
+
+NETLIFY_AUTH_TOKEN=your_netlify_token_here
+NETLIFY_SITE_ID=your_netlify_site_id_here
+NETLIFY_TIMEOUT_SECONDS=30
 ```
 
 OpenAI API kullanımı ChatGPT aboneliğinden ayrı bir API anahtarı ve API hesabı gerektirir. Model `OPENAI_MODEL` ile değiştirilebilir. Varsayılan `gpt-5.6-luna`, demo metni gibi yüksek hacimli ve maliyet duyarlı işler için seçilmiştir.
@@ -114,6 +127,8 @@ OpenAI API kullanımı ChatGPT aboneliğinden ayrı bir API anahtarı ve API hes
 Gerçek API anahtarları ve secret değerler GitHub'a commit edilmemelidir.
 
 Google Places API anahtarı oluşturulmadan önce budget alert, quota ve API-key restriction adımları için [Google Cloud / Places API Setup Checklist](docs/GOOGLE_CLOUD_SETUP.md) uygulanmalıdır.
+
+Paylaşılabilir demo için Netlify kurulumu, Project ID/Site ID, access token ve public proje görünürlüğü adımları [Netlify Demo Sharing Setup](docs/NETLIFY_SETUP.md) dosyasında yer alır.
 
 ## Dashboard'u Çalıştırma
 
@@ -133,11 +148,27 @@ Tarayıcıda açılan ekranda:
 8. Üretilen hero, hakkında, kart, CTA ve SEO metinlerini kontrol edip düzenle.
 9. Güvenli tema presetini ve istersen kısa marka işaretini seç.
 10. `Demo Oluştur / Yeniden Oluştur` butonuna bas.
-11. Oluşan `data/demos/<lead-slug>/index.html` dosyasını kullan.
+11. `Local Preview Aç / Kapat` ile demoyu Streamlit içinde kontrol et.
+12. Netlify ayarları yapılmışsa `Paylaşılabilir Demo Yayınla` ile HTTPS link üret.
+13. Üretilen public link otomatik olarak lead'in CRM kaydına bağlanır.
 
-Her lead için ayrıca `demo.json` oluşturulur. Bu dosya insan tarafından kontrol edilmiş içerik, theme seçimi ve demo üretim girdilerini saklar; aynı lead daha sonra tekrar açıldığında taslak geri yüklenebilir.
+Her lead için local olarak `demo.json` oluşturulur. Bu dosya insan tarafından kontrol edilmiş içerik, theme seçimi ve demo üretim girdilerini saklar; aynı lead daha sonra tekrar açıldığında taslak geri yüklenebilir. `demo.json` Netlify deploy paketine dahil edilmez.
 
-M4.4 sonunda statik site dosyası üretilmektedir. **Local preview sunucusu ve paylaşılabilir deployment/link üretimi M4.5 kapsamındadır.**
+Demo dosya yapısı:
+
+```text
+data/demos/<lead-slug>/
+├── index.html
+└── demo.json
+```
+
+Netlify paylaşım yapısı:
+
+```text
+https://<demo-site>.netlify.app/<lead-slug>/
+```
+
+`Demo Dosyalarını Temizle` seçili lead'in local demo klasörünü kaldırır. Netlify yapılandırılmış ve lead daha önce yayınlanmışsa demo hub tekrar deploy edilerek public kopya da kaldırılır; başarılı remote senkronizasyondan sonra CRM `demo_url` alanı temizlenir.
 
 İlk kullanım için önerilen sorgular:
 
@@ -160,7 +191,7 @@ Foundation smoke test:
 python -m web_lead_automation
 ```
 
-AI provider testleri gerçek API çağrısı yapmaz; `httpx.MockTransport` ile request/response sözleşmesi doğrulanır.
+AI ve Netlify provider testleri gerçek ücretli servis çağrıları yapmaz; `httpx.MockTransport` ile request/response sözleşmeleri doğrulanır. Gerçek Google Places, OpenAI ve Netlify uçtan uca kontrolü MVP saha doğrulamasında kullanıcı API hesaplarıyla yapılmalıdır.
 
 ## Lead Scoring v1
 
@@ -185,7 +216,9 @@ WON
 LOST
 ```
 
-Kalıcı CRM verisi mümkün olduğunca bizim ürettiğimiz satış bilgileriyle sınırlı tutulur. Google Places işletme detaylarının kalıcı kopyasını oluşturmak yerine Place ID, durum, not ve zaman bilgileri saklanır.
+Kalıcı CRM verisi mümkün olduğunca bizim ürettiğimiz satış bilgileriyle sınırlı tutulur. Google Places işletme detaylarının kalıcı kopyasını oluşturmak yerine Place ID, durum, not, demo URL ve zaman bilgileri saklanır.
+
+Mevcut M2.x veritabanları uygulama açıldığında `demo_url` kolonu için geriye uyumlu şekilde migrate edilir; mevcut status ve not kayıtları korunur.
 
 ## AI Demo Website Yaklaşımı
 
@@ -206,7 +239,9 @@ Test edilmiş landing page template
    ↓
 Lead'e özel index.html + demo.json
    ↓
-Preview / paylaşılabilir link
+Local preview
+   ↓
+Paylaşılabilir HTTPS demo linki
 ```
 
 AI içerik katmanı işletmenin sahip olmadığı hizmetleri, ödülleri, faaliyet süresini, müşteri sayılarını, referansları, fiyatları veya garantileri gerçekmiş gibi üretmemesi için sınırlandırılmıştır. Doğrulanmış hizmet girilmezse hizmet kartları tarafsız bilgi ve iletişim metinlerine dönmelidir.

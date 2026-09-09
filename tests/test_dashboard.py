@@ -4,6 +4,7 @@ from web_lead_automation.dashboard import (
     ai_content_session_key,
     apply_tracked_state,
     demo_path_session_key,
+    demo_preview_session_key,
     filter_leads,
     find_lead_by_place_id,
     lead_detail_label,
@@ -85,6 +86,10 @@ def test_ai_content_session_key_is_scoped_to_place() -> None:
 
 def test_demo_path_session_key_is_scoped_to_place() -> None:
     assert demo_path_session_key("place-123") == "demo_path:place-123"
+
+
+def test_demo_preview_session_key_is_scoped_to_place() -> None:
+    assert demo_preview_session_key("place-123") == "demo_preview_open:place-123"
 
 
 def test_lead_rows_exposes_sales_columns_without_persisting_place_data() -> None:

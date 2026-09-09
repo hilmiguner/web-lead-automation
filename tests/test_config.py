@@ -14,6 +14,9 @@ def test_settings_have_safe_defaults(monkeypatch):
     monkeypatch.delenv("OPENAI_TIMEOUT_SECONDS", raising=False)
     monkeypatch.delenv("LEAD_DB_PATH", raising=False)
     monkeypatch.delenv("DEMO_OUTPUT_PATH", raising=False)
+    monkeypatch.delenv("NETLIFY_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("NETLIFY_SITE_ID", raising=False)
+    monkeypatch.delenv("NETLIFY_TIMEOUT_SECONDS", raising=False)
 
     settings = Settings(_env_file=None)
 
@@ -27,6 +30,9 @@ def test_settings_have_safe_defaults(monkeypatch):
     assert settings.openai_timeout_seconds == 30.0
     assert settings.lead_db_path == Path("data/leads.sqlite3")
     assert settings.demo_output_path == Path("data/demos")
+    assert settings.netlify_auth_token is None
+    assert settings.netlify_site_id is None
+    assert settings.netlify_timeout_seconds == 30.0
 
 
 def test_settings_read_environment(monkeypatch):
@@ -40,6 +46,9 @@ def test_settings_read_environment(monkeypatch):
     monkeypatch.setenv("OPENAI_TIMEOUT_SECONDS", "45")
     monkeypatch.setenv("LEAD_DB_PATH", "tmp/test-leads.sqlite3")
     monkeypatch.setenv("DEMO_OUTPUT_PATH", "tmp/demos")
+    monkeypatch.setenv("NETLIFY_AUTH_TOKEN", "netlify-token")
+    monkeypatch.setenv("NETLIFY_SITE_ID", "netlify-site")
+    monkeypatch.setenv("NETLIFY_TIMEOUT_SECONDS", "50")
 
     settings = Settings(_env_file=None)
 
@@ -53,3 +62,6 @@ def test_settings_read_environment(monkeypatch):
     assert settings.openai_timeout_seconds == 45.0
     assert settings.lead_db_path == Path("tmp/test-leads.sqlite3")
     assert settings.demo_output_path == Path("tmp/demos")
+    assert settings.netlify_auth_token == "netlify-token"
+    assert settings.netlify_site_id == "netlify-site"
+    assert settings.netlify_timeout_seconds == 50.0
