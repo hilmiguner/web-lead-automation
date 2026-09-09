@@ -30,30 +30,6 @@ Demo linkli satış mesajı hazırla
 
 Başlangıç bölgesi: **Gemlik → Bursa → yakın ilçeler**.
 
-## MVP Kapsamı
-
-MVP tamamlandığında kullanıcı:
-
-- Bölge ve sektör girerek işletme arayabilecek.
-- Web sitesi bulunan / bulunmayan işletmeleri ayırabilecek.
-- Potansiyel müşterileri otomatik puanlayabilecek.
-- En değerli lead'leri sıralayabilecek.
-- Lead durumunu ve notlarını takip edebilecek.
-- Seçilen lead için AI destekli tek sayfalık demo site oluşturabilecek.
-- Demo için paylaşılabilir preview alabilecek.
-- Demo linkli kişiselleştirilmiş satış mesajı oluşturabilecek.
-- Daha önce işlenen işletmelerin tekrar tekrar karşısına çıkmasını engelleyebilecek.
-
-İlk CRM durumları:
-
-```text
-NEW
-CONTACTED
-INTERESTED
-WON
-LOST
-```
-
 ## Teknoloji
 
 | Katman | Teknoloji |
@@ -67,32 +43,19 @@ LOST
 | Test | pytest |
 | CI | GitHub Actions |
 
-MVP doğrulandıktan sonra ihtiyaç oluşursa ayrı API, PostgreSQL veya daha gelişmiş frontend mimarisine geçilebilir.
+## Mevcut Özellikler
 
-## Mevcut Proje Yapısı
-
-```text
-web-lead-automation/
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── src/
-│   └── web_lead_automation/
-│       ├── __init__.py
-│       ├── __main__.py
-│       ├── config.py
-│       └── logging_config.py
-├── tests/
-│   ├── test_config.py
-│   └── test_logging_config.py
-├── .env.example
-├── .gitignore
-├── pyproject.toml
-├── README.md
-└── ROADMAP.md
-```
-
-Yapı geliştirme ilerledikçe servis, veri ve UI katmanlarıyla genişletilecektir.
+- Google Places API (New) ile sektör + bölge araması
+- Web sitesi listelenen / listelenmeyen işletme ayrımı
+- Açıklanabilir 0–100 lead scoring
+- SQLite tabanlı minimal CRM
+- Duplicate Place ID kontrolü
+- Lead geçmişi: yeni, daha önce görülmüş, iletişime geçilmiş, WON / LOST
+- Streamlit üzerinden bölge ve sektör seçimi
+- `Lead Ara` aksiyonu
+- Skora göre sıralı sonuç tablosu
+- Telefon, rating, yorum, adres ve Google Maps linki
+- En yüksek skorlu lead için skor nedenleri
 
 ## Kurulum
 
@@ -111,50 +74,76 @@ pip install -e ".[dev]"
 Copy-Item .env.example .env
 ```
 
+`.env` içinde Google Places anahtarını tanımla:
+
+```env
+APP_ENV=development
+LOG_LEVEL=INFO
+GOOGLE_PLACES_API_KEY=your_api_key_here
+LEAD_DB_PATH=data/leads.sqlite3
+```
+
+Gerçek API anahtarları ve secret değerler GitHub'a commit edilmemelidir.
+
+## Dashboard'u Çalıştırma
+
+```powershell
+streamlit run src/web_lead_automation/dashboard.py
+```
+
+Tarayıcıda açılan ekranda:
+
+1. Bölge seç.
+2. Sektör seç.
+3. İstersen özel bölge / sektör gir.
+4. `Lead Ara` butonuna bas.
+5. Web sitesi Google Places'ta listelenmeyen işletmeleri skor sırasıyla incele.
+
+İlk kullanım için önerilen sorgular:
+
+```text
+Gemlik Bursa + Kuaför / Berber
+Gemlik Bursa + Güzellik Merkezi
+Gemlik Bursa + Oto Servis
+Nilüfer Bursa + Emlak Ofisi
+```
+
+## Testler
+
+```powershell
+pytest
+```
+
 Foundation smoke test:
 
 ```powershell
 python -m web_lead_automation
 ```
 
-Testler:
+## Lead Scoring v1
 
-```powershell
-pytest
-```
+| Sinyal | Maksimum puan |
+|---|---:|
+| Google Places'ta website listelenmiyor | 40 |
+| Telefon mevcut | 15 |
+| Yorum hacmi | 20 |
+| Rating | 15 |
+| Hedef işletme türü | 10 |
+| **Toplam** | **100** |
 
-Beklenen test sonucu foundation aşamasında:
+Amaç teorik olarak mükemmel skor değil, **hangi işletmenin önce aranması gerektiğini söyleyen pratik bir sıralama** üretmektir.
+
+## CRM Durumları
 
 ```text
-4 passed
+NEW
+CONTACTED
+INTERESTED
+WON
+LOST
 ```
 
-## Environment
-
-`.env.example` dosyası local `.env` dosyasına kopyalanır.
-
-```env
-APP_ENV=development
-LOG_LEVEL=INFO
-GOOGLE_PLACES_API_KEY=
-LEAD_DB_PATH=data/leads.sqlite3
-```
-
-Gerçek API anahtarları ve secret değerler GitHub'a commit edilmemelidir.
-
-## Lead Scoring
-
-İlk sürümde basit ve açıklanabilir bir puanlama kullanılacaktır. Örnek sinyaller:
-
-- Web sitesi bulunmuyor
-- Telefon numarası mevcut
-- Yüksek Google yorum sayısı
-- İyi Google puanı
-- İşletme aktif görünüyor
-- Seçilen sektör satış açısından değerli
-- Daha önce iletişime geçilmemiş
-
-Puanlama gerçek satış sonuçlarına göre güncellenecektir. Amaç teorik olarak mükemmel skor değil, **hangi işletmenin önce aranması gerektiğini söyleyen pratik bir sıralama** üretmektir.
+Kalıcı CRM verisi mümkün olduğunca bizim ürettiğimiz satış bilgileriyle sınırlı tutulur. Google Places işletme detaylarının kalıcı kopyasını oluşturmak yerine Place ID, durum, not ve zaman bilgileri saklanır.
 
 ## AI Demo Website Yaklaşımı
 
@@ -173,17 +162,6 @@ Preview linki
 ```
 
 AI, doğrulanmamış işletme bilgilerini gerçekmiş gibi üretmemelidir. İlk hedef, bir lead için **5 dakikanın altında insan müdahalesiyle** satışta kullanılabilecek demo hazırlamaktır.
-
-## Veri Kullanımı
-
-Harici veri kaynaklarının kullanım ve saklama koşulları dikkate alınacaktır. Kalıcı CRM verisi mümkün olduğunca bizim ürettiğimiz satış bilgileriyle sınırlı tutulacaktır:
-
-- Harici işletme kimliği
-- Lead durumu
-- Kullanıcı notları
-- İletişim geçmişi
-- Lead score ve uygulamanın ürettiği metadata
-- Demo bağlantısı
 
 ## İlk Satış Modeli
 
