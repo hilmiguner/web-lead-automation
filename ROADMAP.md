@@ -247,11 +247,11 @@ Preview aç
 
 ## M4.5 — Preview ve paylaşım
 
-- [ ] Local preview
-- [ ] Tek tık / tek komutla preview oluşturma
-- [ ] En az bir paylaşılabilir preview deployment yöntemi
-- [ ] Demo linkini CRM kaydına bağla
-- [ ] Eski / kaybedilmiş lead demolarını temizleme yolu
+- [x] Local preview
+- [x] Tek tık / tek komutla preview oluşturma
+- [x] En az bir paylaşılabilir preview deployment yöntemi
+- [x] Demo linkini CRM kaydına bağla
+- [x] Eski / kaybedilmiş lead demolarını temizleme yolu
 
 **Çıkış kriteri:**
 
