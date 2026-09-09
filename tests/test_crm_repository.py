@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,36 @@ def test_initialize_creates_database_and_parent_directory(tmp_path):
     assert db_path.exists()
 
 
+def test_initialize_migrates_existing_database_with_demo_url_column(tmp_path):
+    db_path = tmp_path / "legacy.sqlite3"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE leads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                external_place_id TEXT NOT NULL UNIQUE,
+                status TEXT NOT NULL,
+                note TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO leads (external_place_id, status, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            ("place-legacy", "CONTACTED", "keep me", "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00"),
+        )
+
+    repo = LeadRepository(db_path)
+    repo.initialize()
+    lead = repo.get_by_place_id("place-legacy")
+
+    assert lead is not None
+    assert lead.status is LeadStatus.CONTACTED
+    assert lead.note == "keep me"
+    assert lead.demo_url is None
+
+
 def test_track_creates_new_lead_with_safe_defaults(tmp_path):
     repo = make_repo(tmp_path)
 
@@ -33,6 +64,7 @@ def test_track_creates_new_lead_with_safe_defaults(tmp_path):
     assert lead.external_place_id == "place-123"
     assert lead.status is LeadStatus.NEW
     assert lead.note == ""
+    assert lead.demo_url is None
     assert lead.created_at.tzinfo is not None
     assert lead.updated_at.tzinfo is not None
 
@@ -80,6 +112,36 @@ def test_status_and_note_updates_are_persisted(tmp_path):
     assert persisted is not None
     assert persisted.status is LeadStatus.INTERESTED
     assert persisted.note == "Requested a demo"
+
+
+def test_demo_url_can_be_persisted_and_cleared(tmp_path):
+    db_path = tmp_path / "leads.sqlite3"
+    repo = LeadRepository(db_path)
+    repo.initialize()
+    repo.track("place-123")
+
+    updated = repo.update_demo_url(
+        "place-123",
+        "https://demo-hub.netlify.app/ornek-kuafor-abc/",
+    )
+    assert updated.demo_url == "https://demo-hub.netlify.app/ornek-kuafor-abc/"
+
+    reopened = LeadRepository(db_path)
+    reopened.initialize()
+    persisted = reopened.get_by_place_id("place-123")
+    assert persisted is not None
+    assert persisted.demo_url == "https://demo-hub.netlify.app/ornek-kuafor-abc/"
+
+    cleared = reopened.update_demo_url("place-123", None)
+    assert cleared.demo_url is None
+
+
+def test_demo_url_requires_https(tmp_path):
+    repo = make_repo(tmp_path)
+    repo.track("place-123")
+
+    with pytest.raises(ValueError, match="HTTPS"):
+        repo.update_demo_url("place-123", "http://example.test/demo")
 
 
 def test_update_changes_status_and_note_together(tmp_path):
