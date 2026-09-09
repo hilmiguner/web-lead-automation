@@ -175,6 +175,8 @@ class OpenAIContentClient:
         normalized = _normalize_brief(brief)
         request_payload = {
             "model": self._model,
+            "store": False,
+            "max_output_tokens": 1800,
             "instructions": CONTENT_INSTRUCTIONS,
             "input": json.dumps(
                 {
