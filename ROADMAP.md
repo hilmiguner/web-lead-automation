@@ -122,29 +122,29 @@ Uygulama kapatılıp yeniden açıldığında satış pipeline bilgileri kaybolm
 
 ## M3.1 — Streamlit arayüz
 
-- [ ] Bölge input'u
-- [ ] Sektör input'u / preset seçenekleri
-- [ ] `Lead Ara` butonu
-- [ ] Sonuç tablosu
-- [ ] Lead score sıralaması
-- [ ] Website durumu
-- [ ] Telefon varlığı
-- [ ] Rating / yorum bilgisi
+- [x] Bölge input'u
+- [x] Sektör input'u / preset seçenekleri
+- [x] `Lead Ara` butonu
+- [x] Sonuç tablosu
+- [x] Lead score sıralaması
+- [x] Website durumu
+- [x] Telefon varlığı
+- [x] Rating / yorum bilgisi
 
 ## M3.2 — Lead detay ekranı
 
-- [ ] Lead detaylarını göster
-- [ ] Score açıklaması
-- [ ] CRM status değiştir
-- [ ] Not ekle
-- [ ] Google Maps / işletme kaynağına gitmek için bağlantı
+- [x] Lead detaylarını göster
+- [x] Score açıklaması
+- [x] CRM status değiştir
+- [x] Not ekle
+- [x] Google Maps / işletme kaynağına gitmek için bağlantı
 
 ## M3.3 — Hızlı filtreler
 
-- [ ] Sadece website olmayanlar
-- [ ] Minimum skor
-- [ ] Sadece telefon numarası olanlar
-- [ ] CRM status filtresi
+- [x] Sadece website olmayanlar
+- [x] Minimum skor
+- [x] Sadece telefon numarası olanlar
+- [x] CRM status filtresi
 
 **Çıkış kriteri:**
 
@@ -176,17 +176,17 @@ Preview / paylaşılabilir demo
 
 İlk MVP için **tek güçlü ve sektörler arası kullanılabilir landing page template** yeterlidir.
 
-- [ ] Responsive tek sayfalık demo template
-- [ ] Hero alanı
-- [ ] Hizmetler
-- [ ] Hakkında
-- [ ] Güven / sosyal kanıt alanı
-- [ ] İletişim
-- [ ] WhatsApp CTA
-- [ ] Telefon CTA
-- [ ] Maps / adres alanı
-- [ ] Mobil uyumluluk
-- [ ] Demo olduğunu belirten uygun preview işareti
+- [x] Responsive tek sayfalık demo template
+- [x] Hero alanı
+- [x] Hizmetler
+- [x] Hakkında
+- [x] Güven / sosyal kanıt alanı
+- [x] İletişim
+- [x] WhatsApp CTA
+- [x] Telefon CTA
+- [x] Maps / adres alanı
+- [x] Mobil uyumluluk
+- [x] Demo olduğunu belirten uygun preview işareti
 
 İlk satışlardan sonra gerekirse ayrı sektör template'leri eklenir:
 
