@@ -73,7 +73,7 @@ def lead_rows(leads: Iterable[LeadWithHistory]) -> list[dict[str, object]]:
                 "Skor": item.lead.score,
                 "İşletme": place.display_name,
                 "Telefon": place.national_phone_number or "—",
-                "Rating": place.rating if place.rating is not None else "—",
+                "Rating": place.rating,
                 "Yorum": place.user_rating_count or 0,
                 "Website": "Listelenmiyor",
                 "CRM": item.status.value,
