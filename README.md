@@ -64,6 +64,10 @@ Başlangıç bölgesi: **Gemlik → Bursa → yakın ilçeler**.
 - Hero, hakkında, hizmet/bilgi kartları, CTA ve SEO metni üretimi
 - Lead bazlı AI içeriğini dashboard üzerinden düzenleme
 - Doğrulanmamış hizmet ve işletme iddialarını azaltan prompt kuralları
+- Sektöre göre otomatik seçilen güvenli demo tema presetleri
+- Kuaför/güzellik, otomotiv, emlak, lojistik, etkinlik, yapı ve genel kurumsal paletler
+- Harici işletme fotoğrafı kopyalamadan CSS tabanlı güvenli placeholder görseller
+- Kısa monogram / marka alanı desteği
 
 ## Kurulum
 
@@ -102,6 +106,8 @@ LEAD_DB_PATH=data/leads.sqlite3
 OpenAI API kullanımı ChatGPT aboneliğinden ayrı bir API anahtarı ve API hesabı gerektirir. Model `OPENAI_MODEL` ile değiştirilebilir. Varsayılan `gpt-5.6-luna`, demo metni gibi yüksek hacimli ve maliyet duyarlı işler için seçilmiştir.
 
 Gerçek API anahtarları ve secret değerler GitHub'a commit edilmemelidir.
+
+Google Places API anahtarı oluşturulmadan önce budget alert, quota ve API-key restriction adımları için [Google Cloud / Places API Setup Checklist](docs/GOOGLE_CLOUD_SETUP.md) uygulanmalıdır.
 
 ## Dashboard'u Çalıştırma
 
@@ -183,6 +189,8 @@ Structured AI içerik taslağı
    ↓
 İnsan kontrolü / düzenleme
    ↓
+Sektöre göre trusted theme preset
+   ↓
 Test edilmiş landing page template
    ↓
 Kişiselleştirilmiş demo
@@ -191,6 +199,8 @@ Preview linki
 ```
 
 AI içerik katmanı işletmenin sahip olmadığı hizmetleri, ödülleri, faaliyet süresini, müşteri sayılarını, referansları, fiyatları veya garantileri gerçekmiş gibi üretmemesi için sınırlandırılmıştır. Doğrulanmış hizmet girilmezse hizmet kartları tarafsız bilgi ve iletişim metinlerine dönmelidir.
+
+Tema katmanında model veya kullanıcıdan keyfi CSS kabul edilmez. Yalnızca uygulama içinde tanımlanmış presetler kullanılabilir. MVP görselleri harici işletme fotoğraflarını kalıcı olarak kopyalamak yerine CSS tabanlı soyut placeholder alanları kullanır.
 
 İlk hedef, bir lead için **5 dakikanın altında insan müdahalesiyle** satışta kullanılabilecek demo hazırlamaktır.
 
