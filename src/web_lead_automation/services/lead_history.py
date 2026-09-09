@@ -58,7 +58,8 @@ class LeadHistoryService:
 
         ``seen_before`` is false only when the lead is inserted into the CRM by
         this call. Existing status and notes are never overwritten by a repeated
-        search result.
+        search result. The latest Google display name is persisted for CRM-only
+        follow-up views after the application restarts.
         """
 
         enriched: list[LeadWithHistory] = []
@@ -67,7 +68,10 @@ class LeadHistoryService:
             if not place_id:
                 raise ValueError("lead place_id must not be empty.")
 
-            tracked, created = self._repository.track(place_id)
+            tracked, created = self._repository.track(
+                place_id,
+                display_name=lead.place.display_name,
+            )
             enriched.append(
                 LeadWithHistory(
                     lead=lead,
