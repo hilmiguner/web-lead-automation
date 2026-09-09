@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="$seo_description">
+  <title>$seo_title</title>
+  <style>
+    :root {
+      --bg: #f6f3ed;
+      --surface: #ffffff;
+      --surface-strong: #111827;
+      --text: #18202b;
+      --muted: #657083;
+      --line: #e6dfd3;
+      --accent: #d97706;
+      --accent-soft: #fff1db;
+      --radius-lg: 28px;
+      --radius-md: 18px;
+      --shadow: 0 22px 60px rgba(34, 26, 16, .10);
+      --content: 1160px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: inherit; text-decoration: none; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    .container { width: min(calc(100% - 40px), var(--content)); margin: 0 auto; }
+
+    .demo-ribbon {
+      position: fixed;
+      z-index: 50;
+      right: 18px;
+      top: 18px;
+      padding: 9px 13px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      background: rgba(17,24,39,.92);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      box-shadow: 0 10px 35px rgba(0,0,0,.18);
+      backdrop-filter: blur(12px);
+    }
+
+    .site-header { padding: 28px 0 10px; }
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 58px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 850; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: var(--surface-strong);
+      color: #fff;
+      font-weight: 900;
+    }
+    .nav-links { display: flex; align-items: center; gap: 24px; color: var(--muted); font-size: 14px; }
+    .nav-cta {
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: var(--surface-strong);
+      color: #fff;
+      font-weight: 750;
+    }
+
+    .hero { padding: 72px 0 72px; }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+      gap: 64px;
+      align-items: center;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #8a4a03;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    h1 {
+      margin: 22px 0 22px;
+      max-width: 780px;
+      font-size: clamp(44px, 7vw, 82px);
+      line-height: .98;
+      letter-spacing: -.055em;
+    }
+    .hero-copy { max-width: 680px; color: var(--muted); font-size: clamp(18px, 2.2vw, 21px); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 50px;
+      padding: 0 20px;
+      border-radius: 14px;
+      font-weight: 800;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .button:hover { transform: translateY(-2px); }
+    .button-primary { background: var(--surface-strong); color: #fff; box-shadow: 0 14px 30px rgba(17,24,39,.18); }
+    .button-secondary { border: 1px solid var(--line); background: rgba(255,255,255,.65); }
+
+    .hero-panel {
+      position: relative;
+      overflow: hidden;
+      min-height: 470px;
+      padding: 34px;
+      border-radius: var(--radius-lg);
+      background: var(--surface-strong);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+    .hero-panel::after {
+      content: "";
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      right: -80px;
+      top: -80px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(217,119,6,.9), rgba(217,119,6,0));
+    }
+    .hero-panel small { color: #cbd5e1; text-transform: uppercase; letter-spacing: .11em; font-weight: 800; }
+    .hero-panel h2 { position: relative; z-index: 1; margin: 18px 0 10px; font-size: 34px; line-height: 1.08; }
+    .hero-panel p { position: relative; z-index: 1; color: #cbd5e1; }
+    .panel-card {
+      position: absolute;
+      z-index: 2;
+      left: 34px;
+      right: 34px;
+      bottom: 34px;
+      padding: 22px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 20px;
+      background: rgba(255,255,255,.08);
+      backdrop-filter: blur(10px);
+    }
+    .panel-card strong { display: block; font-size: 18px; margin-bottom: 8px; }
+    .panel-card span { color: #d6dde8; font-size: 14px; }
+
+    section { padding: 88px 0; }
+    .section-kicker { color: var(--accent); font-size: 13px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+    .section-title { margin: 10px 0 16px; max-width: 760px; font-size: clamp(34px, 5vw, 54px); line-height: 1.05; letter-spacing: -.04em; }
+    .section-intro { max-width: 720px; color: var(--muted); font-size: 18px; }
+
+    .services-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 42px; }
+    .service-card {
+      padding: 28px;
+      min-height: 250px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,.72);
+    }
+    .service-index { color: var(--accent); font-size: 13px; font-weight: 900; letter-spacing: .1em; }
+    .service-card h3 { margin: 48px 0 12px; font-size: 24px; line-height: 1.15; }
+    .service-card p { margin: 0; color: var(--muted); }
+
+    .about-shell {
+      display: grid;
+      grid-template-columns: .9fr 1.1fr;
+      gap: 48px;
+      align-items: stretch;
+      padding: 48px;
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .about-visual {
+      min-height: 360px;
+      border-radius: 24px;
+      background:
+        linear-gradient(145deg, rgba(17,24,39,.98), rgba(55,65,81,.9)),
+        radial-gradient(circle at 25% 20%, rgba(217,119,6,.45), transparent 38%);
+      color: white;
+      padding: 30px;
+      display: flex;
+      align-items: flex-end;
+    }
+    .about-visual strong { font-size: 38px; line-height: 1; letter-spacing: -.04em; }
+    .about-content { display: flex; flex-direction: column; justify-content: center; }
+    .about-content p { color: var(--muted); font-size: 18px; }
+
+    .trust-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 36px; }
+    .trust-card { padding: 24px 0; border-top: 1px solid var(--line); }
+    .trust-card strong { display: block; font-size: 20px; margin-bottom: 6px; }
+    .trust-card span { color: var(--muted); }
+
+    .contact-shell {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 28px;
+      padding: 46px;
+      border-radius: var(--radius-lg);
+      background: var(--surface-strong);
+      color: #fff;
+    }
+    .contact-shell .section-kicker { color: #fbbf24; }
+    .contact-shell .section-title { margin-bottom: 18px; }
+    .contact-shell p { color: #cbd5e1; }
+    .contact-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+    .contact-actions .button-primary { background: #fff; color: var(--surface-strong); }
+    .contact-actions .button-secondary { border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.08); color: #fff; }
+    .location-card {
+      padding: 26px;
+      border-radius: 22px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .location-card small { color: #94a3b8; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+    .location-card address { margin: 16px 0 28px; font-style: normal; font-size: 22px; font-weight: 700; }
+    .location-link { color: #fbbf24; font-weight: 850; }
+
+    footer { padding: 32px 0 92px; color: var(--muted); font-size: 13px; }
+    .footer-row { display: flex; justify-content: space-between; gap: 24px; border-top: 1px solid var(--line); padding-top: 22px; }
+    .preview-note { max-width: 700px; }
+
+    .mobile-contact { display: none; }
+
+    @media (max-width: 900px) {
+      .nav-links { display: none; }
+      .hero { padding-top: 48px; }
+      .hero-grid, .about-shell, .contact-shell { grid-template-columns: 1fr; }
+      .hero-panel { min-height: 390px; }
+      .services-grid, .trust-grid { grid-template-columns: 1fr; }
+      .about-shell, .contact-shell { padding: 28px; }
+      section { padding: 64px 0; }
+    }
+
+    @media (max-width: 640px) {
+      .container { width: min(calc(100% - 24px), var(--content)); }
+      .site-header { padding-top: 18px; }
+      .nav-cta { display: none; }
+      .demo-ribbon { top: auto; bottom: 76px; right: 12px; }
+      h1 { font-size: clamp(42px, 14vw, 62px); }
+      .hero-panel { min-height: 340px; padding: 24px; }
+      .panel-card { left: 24px; right: 24px; bottom: 24px; }
+      .service-card { min-height: 210px; }
+      .footer-row { flex-direction: column; }
+      footer { padding-bottom: 112px; }
+      .mobile-contact {
+        position: fixed;
+        z-index: 40;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 18px;
+        background: rgba(17,24,39,.94);
+        box-shadow: 0 18px 50px rgba(0,0,0,.26);
+        backdrop-filter: blur(12px);
+      }
+      .mobile-contact a { padding: 12px 10px; border-radius: 12px; text-align: center; color: #fff; font-size: 13px; font-weight: 850; }
+      .mobile-contact a:first-child { background: #fff; color: var(--surface-strong); }
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-ribbon" aria-label="Demo website">Demo Önizleme</div>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="#top" aria-label="$business_name ana sayfa">
+        <span class="brand-mark">$business_name</span>
+        <span>$business_name</span>
+      </a>
+      <nav class="nav-links" aria-label="Ana menü">
+        <a href="#services">Hizmetler</a>
+        <a href="#about">Hakkımızda</a>
+        <a href="#contact">İletişim</a>
+      </nav>
+      <a class="nav-cta" href="$phone_href">Bize Ulaşın</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <span class="eyebrow">$sector</span>
+          <h1>$hero_title</h1>
+          <p class="hero-copy">$hero_text</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="$whatsapp_href" rel="noopener">WhatsApp'tan Yazın</a>
+            <a class="button button-secondary" href="$phone_href">$phone_display</a>
+          </div>
+        </div>
+        <aside class="hero-panel" aria-label="İşletme iletişim özeti">
+          <small>$sector</small>
+          <h2>$business_name</h2>
+          <p>İşletmenize hızlıca ulaşın, hizmetleri inceleyin ve konum bilgisine tek ekrandan erişin.</p>
+          <div class="panel-card">
+            <strong>Hızlı iletişim</strong>
+            <span>Telefon, WhatsApp ve konum bağlantıları mobil kullanıcılar için tek dokunuşla erişilebilir.</span>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="services">
+      <div class="container">
+        <span class="section-kicker">Hizmetler</span>
+        <h2 class="section-title">İhtiyacınıza uygun çözümleri kolayca keşfedin.</h2>
+        <p class="section-intro">Aşağıdaki alanlar işletmenin doğrulanmış hizmet bilgileriyle kişiselleştirilecek şekilde tasarlanmıştır.</p>
+        <div class="services-grid">
+          $service_cards
+        </div>
+      </div>
+    </section>
+
+    <section id="about">
+      <div class="container about-shell">
+        <div class="about-visual">
+          <strong>$business_name</strong>
+        </div>
+        <div class="about-content">
+          <span class="section-kicker">Hakkımızda</span>
+          <h2 class="section-title">İşletmenizi dijitalde net ve güven veren bir şekilde anlatın.</h2>
+          <p>$about_text</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="$phone_href">Telefonla Ulaşın</a>
+            <a class="button button-secondary" href="$maps_href" rel="noopener">Konumu Görün</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="trust-title">
+      <div class="container">
+        <span class="section-kicker">Kolay erişim</span>
+        <h2 class="section-title" id="trust-title">Müşterinin ihtiyaç duyduğu temel bilgiler tek yerde.</h2>
+        <div class="trust-grid">
+          <div class="trust-card">
+            <strong>Mobil uyumlu</strong>
+            <span>Telefon ve tablet ekranlarında okunabilir, hızlı bir tek sayfa deneyimi.</span>
+          </div>
+          <div class="trust-card">
+            <strong>Tek dokunuşla iletişim</strong>
+            <span>Telefon ve WhatsApp butonları doğrudan iletişime yönlendirir.</span>
+          </div>
+          <div class="trust-card">
+            <strong>Konuma hızlı erişim</strong>
+            <span>Adres ve harita bağlantısı müşterinin işletmeyi bulmasını kolaylaştırır.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact">
+      <div class="container contact-shell">
+        <div>
+          <span class="section-kicker">İletişim</span>
+          <h2 class="section-title">Sorunuz mu var? Hemen iletişime geçin.</h2>
+          <p>Telefon veya WhatsApp üzerinden işletmeye ulaşabilir, konum bilgisini açabilirsiniz.</p>
+          <div class="contact-actions">
+            <a class="button button-primary" href="$whatsapp_href" rel="noopener">WhatsApp</a>
+            <a class="button button-secondary" href="$phone_href">$phone_display</a>
+          </div>
+        </div>
+        <div class="location-card">
+          <div>
+            <small>Adres</small>
+            <address>$address</address>
+          </div>
+          <a class="location-link" href="$maps_href" rel="noopener">Google Maps'te Aç →</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-row">
+      <strong>$business_name</strong>
+      <span class="preview-note">Bu sayfa satış sunumu amacıyla hazırlanmış bir demo önizlemesidir; işletmenin resmi web sitesi olduğu anlamına gelmez.</span>
+    </div>
+  </footer>
+
+  <div class="mobile-contact" aria-label="Mobil hızlı iletişim">
+    <a href="$phone_href">Ara</a>
+    <a href="$whatsapp_href" rel="noopener">WhatsApp</a>
+  </div>
+</body>
+</html>
