@@ -27,6 +27,10 @@ class TrackedLead:
     created_at: datetime
     updated_at: datetime
     demo_url: str | None = None
+    display_name: str | None = None
+    last_contact_at: datetime | None = None
+    contact_note: str = ""
+    follow_up_at: datetime | None = None
 
 
 class LeadNotFoundError(LookupError):
@@ -52,31 +56,49 @@ class LeadRepository:
                     note TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
-                    demo_url TEXT
+                    demo_url TEXT,
+                    display_name TEXT,
+                    last_contact_at TEXT,
+                    contact_note TEXT NOT NULL DEFAULT '',
+                    follow_up_at TEXT
                 )
                 """
             )
-            self._ensure_demo_url_column(connection)
+            self._ensure_columns(connection)
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status)"
             )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_leads_follow_up_at ON leads(follow_up_at)"
+            )
 
-    def track(self, external_place_id: str) -> tuple[TrackedLead, bool]:
+    def track(
+        self,
+        external_place_id: str,
+        *,
+        display_name: str | None = None,
+    ) -> tuple[TrackedLead, bool]:
         place_id = external_place_id.strip()
         if not place_id:
             raise ValueError("external_place_id must not be empty.")
+        normalized_name = self._normalize_optional_text(display_name)
 
         now = self._now_iso()
         with self._connect() as connection:
             cursor = connection.execute(
                 """
                 INSERT OR IGNORE INTO leads (
-                    external_place_id, status, note, created_at, updated_at
-                ) VALUES (?, 'NEW', '', ?, ?)
+                    external_place_id, status, note, created_at, updated_at, display_name
+                ) VALUES (?, 'NEW', '', ?, ?, ?)
                 """,
-                (place_id, now, now),
+                (place_id, now, now, normalized_name),
             )
             created = cursor.rowcount == 1
+            if not created and normalized_name:
+                connection.execute(
+                    "UPDATE leads SET display_name = ? WHERE external_place_id = ?",
+                    (normalized_name, place_id),
+                )
             row = connection.execute(
                 "SELECT * FROM leads WHERE external_place_id = ?",
                 (place_id,),
@@ -117,6 +139,27 @@ class LeadRepository:
 
         with self._connect() as connection:
             rows = connection.execute(query, params).fetchall()
+        return tuple(self._row_to_lead(row) for row in rows)
+
+    def list_follow_ups_due(
+        self,
+        *,
+        as_of: datetime | None = None,
+    ) -> tuple[TrackedLead, ...]:
+        """Return open leads whose explicitly scheduled follow-up is due."""
+
+        cutoff = self._normalize_datetime(as_of or datetime.now(timezone.utc), "as_of")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM leads
+                WHERE follow_up_at IS NOT NULL
+                  AND follow_up_at <= ?
+                  AND status NOT IN ('WON', 'LOST')
+                ORDER BY follow_up_at ASC, id ASC
+                """,
+                (cutoff.isoformat(),),
+            ).fetchall()
         return tuple(self._row_to_lead(row) for row in rows)
 
     def update(
@@ -161,6 +204,96 @@ class LeadRepository:
                 (place_id,),
             ).fetchone()
 
+        assert row is not None
+        return self._row_to_lead(row)
+
+    def record_contact(
+        self,
+        external_place_id: str,
+        *,
+        contact_note: str = "",
+        contacted_at: datetime | None = None,
+        follow_up_at: datetime | None = None,
+    ) -> TrackedLead:
+        """Record a contact attempt and move NEW leads to CONTACTED.
+
+        Existing INTERESTED/WON/LOST states are preserved so a contact-log action
+        cannot accidentally downgrade the sales pipeline.
+        """
+
+        place_id = external_place_id.strip()
+        if not place_id:
+            raise ValueError("external_place_id must not be empty.")
+
+        contacted = self._normalize_datetime(
+            contacted_at or datetime.now(timezone.utc),
+            "contacted_at",
+        )
+        follow_up = (
+            self._normalize_datetime(follow_up_at, "follow_up_at")
+            if follow_up_at is not None
+            else None
+        )
+        if follow_up is not None and follow_up <= contacted:
+            raise ValueError("follow_up_at must be later than contacted_at.")
+        normalized_contact_note = contact_note.strip()
+
+        with self._connect() as connection:
+            current = connection.execute(
+                "SELECT status FROM leads WHERE external_place_id = ?",
+                (place_id,),
+            ).fetchone()
+            if current is None:
+                raise LeadNotFoundError(place_id)
+
+            current_status = LeadStatus(str(current["status"]))
+            new_status = (
+                LeadStatus.CONTACTED
+                if current_status is LeadStatus.NEW
+                else current_status
+            )
+            cursor = connection.execute(
+                """
+                UPDATE leads
+                SET status = ?, last_contact_at = ?, contact_note = ?, follow_up_at = ?, updated_at = ?
+                WHERE external_place_id = ?
+                """,
+                (
+                    new_status.value,
+                    contacted.isoformat(),
+                    normalized_contact_note,
+                    follow_up.isoformat() if follow_up else None,
+                    self._now_iso(),
+                    place_id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise LeadNotFoundError(place_id)
+            row = connection.execute(
+                "SELECT * FROM leads WHERE external_place_id = ?",
+                (place_id,),
+            ).fetchone()
+
+        assert row is not None
+        return self._row_to_lead(row)
+
+    def clear_follow_up(self, external_place_id: str) -> TrackedLead:
+        """Clear a scheduled follow-up after it is handled or no longer needed."""
+
+        place_id = external_place_id.strip()
+        if not place_id:
+            raise ValueError("external_place_id must not be empty.")
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE leads SET follow_up_at = NULL, updated_at = ? WHERE external_place_id = ?",
+                (self._now_iso(), place_id),
+            )
+            if cursor.rowcount != 1:
+                raise LeadNotFoundError(place_id)
+            row = connection.execute(
+                "SELECT * FROM leads WHERE external_place_id = ?",
+                (place_id,),
+            ).fetchone()
         assert row is not None
         return self._row_to_lead(row)
 
@@ -209,13 +342,23 @@ class LeadRepository:
         return self._row_to_lead(row)
 
     @staticmethod
-    def _ensure_demo_url_column(connection: sqlite3.Connection) -> None:
+    def _ensure_columns(connection: sqlite3.Connection) -> None:
         columns = {
             str(row[1])
             for row in connection.execute("PRAGMA table_info(leads)").fetchall()
         }
-        if "demo_url" not in columns:
-            connection.execute("ALTER TABLE leads ADD COLUMN demo_url TEXT")
+        migrations = {
+            "demo_url": "ALTER TABLE leads ADD COLUMN demo_url TEXT",
+            "display_name": "ALTER TABLE leads ADD COLUMN display_name TEXT",
+            "last_contact_at": "ALTER TABLE leads ADD COLUMN last_contact_at TEXT",
+            "contact_note": (
+                "ALTER TABLE leads ADD COLUMN contact_note TEXT NOT NULL DEFAULT ''"
+            ),
+            "follow_up_at": "ALTER TABLE leads ADD COLUMN follow_up_at TEXT",
+        }
+        for column, statement in migrations.items():
+            if column not in columns:
+                connection.execute(statement)
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._db_path)
@@ -233,12 +376,30 @@ class LeadRepository:
         return candidate
 
     @staticmethod
+    def _normalize_optional_text(value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = " ".join(value.split())
+        return normalized or None
+
+    @staticmethod
+    def _normalize_datetime(value: datetime, field_name: str) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(f"{field_name} must be timezone-aware.")
+        return value.astimezone(timezone.utc)
+
+    @staticmethod
     def _now_iso() -> str:
         return datetime.now(timezone.utc).isoformat()
 
     @staticmethod
     def _row_to_lead(row: sqlite3.Row) -> TrackedLead:
-        demo_url = row["demo_url"] if "demo_url" in row.keys() else None
+        keys = set(row.keys())
+        demo_url = row["demo_url"] if "demo_url" in keys else None
+        display_name = row["display_name"] if "display_name" in keys else None
+        last_contact_at = row["last_contact_at"] if "last_contact_at" in keys else None
+        contact_note = row["contact_note"] if "contact_note" in keys else ""
+        follow_up_at = row["follow_up_at"] if "follow_up_at" in keys else None
         return TrackedLead(
             id=int(row["id"]),
             external_place_id=str(row["external_place_id"]),
@@ -247,4 +408,12 @@ class LeadRepository:
             created_at=datetime.fromisoformat(str(row["created_at"])),
             updated_at=datetime.fromisoformat(str(row["updated_at"])),
             demo_url=str(demo_url) if demo_url else None,
+            display_name=str(display_name) if display_name else None,
+            last_contact_at=(
+                datetime.fromisoformat(str(last_contact_at)) if last_contact_at else None
+            ),
+            contact_note=str(contact_note or ""),
+            follow_up_at=(
+                datetime.fromisoformat(str(follow_up_at)) if follow_up_at else None
+            ),
         )
