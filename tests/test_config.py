@@ -13,6 +13,7 @@ def test_settings_have_safe_defaults(monkeypatch):
     monkeypatch.delenv("OPENAI_MODEL", raising=False)
     monkeypatch.delenv("OPENAI_TIMEOUT_SECONDS", raising=False)
     monkeypatch.delenv("LEAD_DB_PATH", raising=False)
+    monkeypatch.delenv("DEMO_OUTPUT_PATH", raising=False)
 
     settings = Settings(_env_file=None)
 
@@ -25,6 +26,7 @@ def test_settings_have_safe_defaults(monkeypatch):
     assert settings.openai_model == "gpt-5.6-luna"
     assert settings.openai_timeout_seconds == 30.0
     assert settings.lead_db_path == Path("data/leads.sqlite3")
+    assert settings.demo_output_path == Path("data/demos")
 
 
 def test_settings_read_environment(monkeypatch):
@@ -37,6 +39,7 @@ def test_settings_read_environment(monkeypatch):
     monkeypatch.setenv("OPENAI_MODEL", "gpt-5.6-terra")
     monkeypatch.setenv("OPENAI_TIMEOUT_SECONDS", "45")
     monkeypatch.setenv("LEAD_DB_PATH", "tmp/test-leads.sqlite3")
+    monkeypatch.setenv("DEMO_OUTPUT_PATH", "tmp/demos")
 
     settings = Settings(_env_file=None)
 
@@ -49,3 +52,4 @@ def test_settings_read_environment(monkeypatch):
     assert settings.openai_model == "gpt-5.6-terra"
     assert settings.openai_timeout_seconds == 45.0
     assert settings.lead_db_path == Path("tmp/test-leads.sqlite3")
+    assert settings.demo_output_path == Path("tmp/demos")
