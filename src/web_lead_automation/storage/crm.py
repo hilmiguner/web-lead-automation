@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 class LeadStatus(StrEnum):
@@ -25,6 +26,7 @@ class TrackedLead:
     note: str
     created_at: datetime
     updated_at: datetime
+    demo_url: str | None = None
 
 
 class LeadNotFoundError(LookupError):
@@ -49,10 +51,12 @@ class LeadRepository:
                         CHECK (status IN ('NEW', 'CONTACTED', 'INTERESTED', 'WON', 'LOST')),
                     note TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    updated_at TEXT NOT NULL,
+                    demo_url TEXT
                 )
                 """
             )
+            self._ensure_demo_url_column(connection)
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status)"
             )
@@ -137,6 +141,29 @@ class LeadRepository:
     def update_note(self, external_place_id: str, note: str) -> TrackedLead:
         return self.update(external_place_id, note=note)
 
+    def update_demo_url(self, external_place_id: str, demo_url: str | None) -> TrackedLead:
+        """Persist or clear the current public HTTPS demo URL for one lead."""
+
+        place_id = external_place_id.strip()
+        if not place_id:
+            raise ValueError("external_place_id must not be empty.")
+        normalized_url = self._normalize_demo_url(demo_url)
+
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE leads SET demo_url = ?, updated_at = ? WHERE external_place_id = ?",
+                (normalized_url, self._now_iso(), place_id),
+            )
+            if cursor.rowcount != 1:
+                raise LeadNotFoundError(place_id)
+            row = connection.execute(
+                "SELECT * FROM leads WHERE external_place_id = ?",
+                (place_id,),
+            ).fetchone()
+
+        assert row is not None
+        return self._row_to_lead(row)
+
     def _update(
         self,
         external_place_id: str,
@@ -181,10 +208,29 @@ class LeadRepository:
         assert row is not None
         return self._row_to_lead(row)
 
+    @staticmethod
+    def _ensure_demo_url_column(connection: sqlite3.Connection) -> None:
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(leads)").fetchall()
+        }
+        if "demo_url" not in columns:
+            connection.execute("ALTER TABLE leads ADD COLUMN demo_url TEXT")
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._db_path)
         connection.row_factory = sqlite3.Row
         return connection
+
+    @staticmethod
+    def _normalize_demo_url(value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        candidate = value.strip()
+        parsed = urlparse(candidate)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError("demo_url must be an absolute HTTPS URL.")
+        return candidate
 
     @staticmethod
     def _now_iso() -> str:
@@ -192,6 +238,7 @@ class LeadRepository:
 
     @staticmethod
     def _row_to_lead(row: sqlite3.Row) -> TrackedLead:
+        demo_url = row["demo_url"] if "demo_url" in row.keys() else None
         return TrackedLead(
             id=int(row["id"]),
             external_place_id=str(row["external_place_id"]),
@@ -199,4 +246,5 @@ class LeadRepository:
             note=str(row["note"]),
             created_at=datetime.fromisoformat(str(row["created_at"])),
             updated_at=datetime.fromisoformat(str(row["updated_at"])),
+            demo_url=str(demo_url) if demo_url else None,
         )
