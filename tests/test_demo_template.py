@@ -21,6 +21,7 @@ def _context(**overrides) -> DemoTemplateContext:
             DemoService("Randevu", "Hizmet açıklaması."),
         ),
         "phone_number": "0224 123 45 67",
+        "whatsapp_number": "0224 123 45 67",
         "address": "Gemlik, Bursa",
         "maps_url": "https://maps.google.com/example",
     }
@@ -41,12 +42,57 @@ def test_render_contains_all_m4_1_sections_and_demo_notice() -> None:
     assert "@media (max-width: 640px)" in html
 
 
-def test_render_builds_phone_whatsapp_and_maps_actions() -> None:
+def test_render_builds_phone_whatsapp_and_maps_actions_when_explicitly_available() -> None:
     html = render_demo_html(_context())
 
     assert 'href="tel:+902241234567"' in html
     assert 'href="https://wa.me/902241234567"' in html
     assert 'href="https://maps.google.com/example"' in html
+
+
+def test_render_does_not_infer_whatsapp_from_phone_number() -> None:
+    html = render_demo_html(_context(whatsapp_number=None))
+
+    assert "wa.me" not in html
+    assert ">WhatsApp</a>" not in html
+    assert "WhatsApp'tan Yazın" not in html
+    assert 'href="tel:+902241234567"' in html
+
+
+def test_ai_cta_labels_are_bound_to_contact_and_maps_targets() -> None:
+    html = render_demo_html(
+        _context(
+            whatsapp_number=None,
+            primary_cta_text="İletişime Geçin",
+            secondary_cta_text="Konumu Görün",
+        )
+    )
+
+    assert (
+        '<a class="button button-primary" href="tel:+902241234567">'
+        "İletişime Geçin</a>"
+    ) in html
+    assert (
+        '<a class="button button-secondary" href="https://maps.google.com/example" '
+        'rel="noopener">Konumu Görün</a>'
+    ) in html
+    assert 'href="tel:+902241234567">Konumu Görün</a>' not in html
+
+
+def test_render_normalizes_google_address_unicode_casing_and_business_prefix() -> None:
+    html = render_demo_html(
+        _context(
+            business_name="Kuaför Engin VAROL",
+            address=(
+                "Kuaför Engin VAROL, osmaniye, Taksim sk. bilgen apt, "
+                "16600 Gemli\u0307k / bursa"
+            ),
+        )
+    )
+
+    assert "Osmaniye, Taksim Sk. Bilgen Apt., 16600 Gemlik/Bursa" in html
+    assert "Gemli\u0307k" not in html
+    assert "bilgen apt" not in html
 
 
 def test_render_escapes_business_and_service_content() -> None:
@@ -75,8 +121,8 @@ def test_render_handles_missing_contact_information() -> None:
         _context(phone_number=None, whatsapp_number=None, maps_url=None, address=None)
     )
 
-    assert "Telefon bilgisi eklenecek" in html
     assert "Adres bilgisi eklenecek" in html
+    assert "wa.me" not in html
     assert 'href="#contact"' in html
 
 
