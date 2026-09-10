@@ -79,6 +79,20 @@ def test_ai_cta_labels_are_bound_to_contact_and_maps_targets() -> None:
     assert 'href="tel:+902241234567">Konumu Görün</a>' not in html
 
 
+def test_unavailable_whatsapp_label_falls_back_to_generic_contact_copy() -> None:
+    html = render_demo_html(
+        _context(
+            whatsapp_number=None,
+            primary_cta_text="WhatsApp'tan Bilgi Al",
+            secondary_cta_text="Konumu Görün",
+        )
+    )
+
+    assert "WhatsApp&#x27;tan Bilgi Al" not in html
+    assert 'href="tel:+902241234567">İletişime Geçin</a>' in html
+    assert 'href="https://maps.google.com/example" rel="noopener">Konumu Görün</a>' in html
+
+
 def test_render_normalizes_google_address_unicode_casing_and_business_prefix() -> None:
     html = render_demo_html(
         _context(
@@ -113,7 +127,7 @@ def test_render_rejects_unsafe_maps_scheme() -> None:
     html = render_demo_html(_context(maps_url="javascript:alert(1)"))
 
     assert "javascript:alert(1)" not in html
-    assert 'href="#contact"' in html
+    assert 'href="https://maps.google.com/example"' not in html
 
 
 def test_render_handles_missing_contact_information() -> None:
