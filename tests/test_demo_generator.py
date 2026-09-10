@@ -47,6 +47,7 @@ def _request(**overrides) -> DemoGenerationRequest:
         "sector": "kuaför berber",
         "content": _content(),
         "phone_number": "0224 123 45 67",
+        "whatsapp_number": "0224 123 45 67",
         "address": "Gemlik, Bursa",
         "maps_url": "https://maps.google.com/example",
         "place_types": ("hair_salon",),
