@@ -13,6 +13,30 @@ from urllib.parse import urlparse
 from web_lead_automation.demo.theme import ThemeKey, render_theme_css, resolve_theme
 
 
+_INTERNAL_NAVIGATION_SCRIPT = """<script data-demo-internal-navigation>
+document.addEventListener("click", function (event) {
+  var node = event.target;
+  if (!(node instanceof Element)) {
+    return;
+  }
+  var link = node.closest('a[href^="#"]');
+  if (!link) {
+    return;
+  }
+  var hash = link.getAttribute("href");
+  if (!hash || hash === "#") {
+    return;
+  }
+  var target = document.getElementById(hash.slice(1));
+  if (!target) {
+    return;
+  }
+  event.preventDefault();
+  target.scrollIntoView({behavior: "smooth", block: "start"});
+});
+</script>"""
+
+
 @dataclass(frozen=True, slots=True)
 class DemoService:
     """One service card rendered in the demo website."""
@@ -51,6 +75,10 @@ def render_demo_html(context: DemoTemplateContext) -> str:
     bound only to compatible verified channels so a label such as "Konumu
     Görün" cannot point to ``tel:`` and an unavailable WhatsApp channel cannot
     produce a WhatsApp button.
+
+    Internal hash navigation is intercepted inside the generated document so
+    Streamlit's srcdoc-based local preview scrolls within its iframe instead of
+    resolving anchors against the parent dashboard URL.
     """
 
     business_name = _required(context.business_name, "business_name")
@@ -82,6 +110,7 @@ def render_demo_html(context: DemoTemplateContext) -> str:
         1,
     )
     template_text = _replace_action_blocks(template_text)
+    template_text = _inject_internal_navigation(template_text)
 
     theme_style = (
         f'<style data-demo-theme="{escape(theme.key.value, quote=True)}">\n'
@@ -258,6 +287,18 @@ def _replace_action_blocks(template_text: str) -> str:
     <a href="$whatsapp_href" rel="noopener">WhatsApp</a>
   </div>""",
         "$mobile_contact",
+        1,
+    )
+
+
+def _inject_internal_navigation(template_text: str) -> str:
+    """Keep ``#section`` navigation inside srcdoc/local-preview documents."""
+
+    if "</body>" not in template_text:
+        raise ValueError("demo template must contain a closing body tag")
+    return template_text.replace(
+        "</body>",
+        f"{_INTERNAL_NAVIGATION_SCRIPT}\n</body>",
         1,
     )
 
