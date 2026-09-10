@@ -47,14 +47,10 @@ class DemoTemplateContext:
 def render_demo_html(context: DemoTemplateContext) -> str:
     """Render a self-contained, escaped HTML demo page.
 
-    User/AI-provided text is HTML-escaped before insertion. Visual styling is
-    restricted to application-owned theme presets. Only http/https map links
-    are accepted. Phone links are generated from digits rather than raw user
-    input so the template cannot inject arbitrary URI schemes.
-
-    WhatsApp actions are rendered only when an explicit WhatsApp number was
-    supplied. AI CTA labels are bound deterministically to safe actions instead
-    of being substituted into unrelated static buttons.
+    WhatsApp is never inferred from a normal phone number. AI CTA labels are
+    bound only to compatible verified channels so a label such as "Konumu
+    Görün" cannot point to ``tel:`` and an unavailable WhatsApp channel cannot
+    produce a WhatsApp button.
     """
 
     business_name = _required(context.business_name, "business_name")
@@ -85,42 +81,7 @@ def render_demo_html(context: DemoTemplateContext) -> str:
         '<span class="brand-mark">$brand_initial</span>',
         1,
     )
-
-    # Replace static action blocks with renderer-owned slots. This prevents AI
-    # CTA copy from accidentally changing the label of an unrelated tel/maps
-    # anchor, which was possible with broad string replacement.
-    template_text = template_text.replace(
-        """          <div class="hero-actions">
-            <a class="button button-primary" href="$whatsapp_href" rel="noopener">WhatsApp'tan Yazın</a>
-            <a class="button button-secondary" href="$phone_href">$phone_display</a>
-          </div>""",
-        "          $hero_actions",
-        1,
-    )
-    template_text = template_text.replace(
-        """          <div class="hero-actions">
-            <a class="button button-primary" href="$phone_href">Telefonla Ulaşın</a>
-            <a class="button button-secondary" href="$maps_href" rel="noopener">Konumu Görün</a>
-          </div>""",
-        "          $about_actions",
-        1,
-    )
-    template_text = template_text.replace(
-        """          <div class="contact-actions">
-            <a class="button button-primary" href="$whatsapp_href" rel="noopener">WhatsApp</a>
-            <a class="button button-secondary" href="$phone_href">$phone_display</a>
-          </div>""",
-        "          $contact_actions",
-        1,
-    )
-    template_text = template_text.replace(
-        """  <div class="mobile-contact" aria-label="Mobil hızlı iletişim">
-    <a href="$phone_href">Ara</a>
-    <a href="$whatsapp_href" rel="noopener">WhatsApp</a>
-  </div>""",
-        "$mobile_contact",
-        1,
-    )
+    template_text = _replace_action_blocks(template_text)
 
     theme_style = (
         f'<style data-demo-theme="{escape(theme.key.value, quote=True)}">\n'
@@ -138,8 +99,6 @@ def render_demo_html(context: DemoTemplateContext) -> str:
     phone_digits = _phone_digits(phone_display)
     phone_href = f"tel:+{phone_digits}" if phone_digits else None
 
-    # Never infer WhatsApp availability from the ordinary phone number. Google
-    # Places may expose a phone number without proving that it is on WhatsApp.
     whatsapp_display = (context.whatsapp_number or "").strip()
     whatsapp_digits = _phone_digits(whatsapp_display)
     whatsapp_href = f"https://wa.me/{whatsapp_digits}" if whatsapp_digits else None
@@ -147,25 +106,34 @@ def render_demo_html(context: DemoTemplateContext) -> str:
     maps_href = _safe_http_url(context.maps_url)
     normalized_address = normalize_address(context.address, business_name=business_name)
 
-    primary_href = whatsapp_href or phone_href or maps_href or "#contact"
-    secondary_href = _first_distinct_href(
-        primary_href,
-        maps_href,
-        phone_href,
-        whatsapp_href,
+    primary_label, primary_href = _resolve_cta_action(
+        primary_cta_text,
+        role="primary",
+        phone_href=phone_href,
+        whatsapp_href=whatsapp_href,
+        maps_href=maps_href,
     )
+    secondary_label, secondary_href = _resolve_cta_action(
+        secondary_cta_text,
+        role="secondary",
+        phone_href=phone_href,
+        whatsapp_href=whatsapp_href,
+        maps_href=maps_href,
+    )
+    if secondary_href == primary_href:
+        secondary_href = None
 
     hero_actions = _render_cta_actions(
-        primary_text=primary_cta_text,
+        primary_text=primary_label,
         primary_href=primary_href,
-        secondary_text=secondary_cta_text,
+        secondary_text=secondary_label,
         secondary_href=secondary_href,
         container_class="hero-actions",
     )
     about_actions = _render_cta_actions(
-        primary_text=primary_cta_text,
+        primary_text=primary_label,
         primary_href=primary_href,
-        secondary_text=secondary_cta_text,
+        secondary_text=secondary_label,
         secondary_href=secondary_href,
         container_class="hero-actions",
     )
@@ -224,13 +192,7 @@ def render_demo_html(context: DemoTemplateContext) -> str:
 
 
 def normalize_address(value: str | None, *, business_name: str | None = None) -> str | None:
-    """Normalize Google-style address text for human-facing demo output.
-
-    The function keeps the factual address content intact while fixing common
-    Unicode artifacts, whitespace/punctuation, Turkish address abbreviation
-    casing, and obvious lowercase address tokens. A duplicated business-name
-    prefix is removed because the site already displays the business name.
-    """
+    """Normalize Google-style address text for human-facing demo output."""
 
     if value is None or not value.strip():
         return None
@@ -249,12 +211,12 @@ def normalize_address(value: str | None, *, business_name: str | None = None) ->
     text = re.sub(r"\s*/\s*", "/", text)
 
     abbreviations = {
-        r"\bmah\.?\b": "Mah.",
-        r"\bsk\.?\b": "Sk.",
-        r"\bsok\.?\b": "Sok.",
-        r"\bcad\.?\b": "Cad.",
-        r"\bcd\.?\b": "Cd.",
-        r"\bapt\.?\b": "Apt.",
+        r"\bmah\.?": "Mah.",
+        r"\bsk\.?": "Sk.",
+        r"\bsok\.?": "Sok.",
+        r"\bcad\.?": "Cad.",
+        r"\bcd\.?": "Cd.",
+        r"\bapt\.?": "Apt.",
     }
     for pattern, replacement in abbreviations.items():
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
@@ -263,6 +225,100 @@ def normalize_address(value: str | None, *, business_name: str | None = None) ->
     text = re.sub(r"\.{2,}", ".", text)
     text = re.sub(r"[^\W\d_]+", _capitalize_address_word, text, flags=re.UNICODE)
     return text.strip(" ,") or None
+
+
+def _replace_action_blocks(template_text: str) -> str:
+    template_text = template_text.replace(
+        """          <div class="hero-actions">
+            <a class="button button-primary" href="$whatsapp_href" rel="noopener">WhatsApp'tan Yazın</a>
+            <a class="button button-secondary" href="$phone_href">$phone_display</a>
+          </div>""",
+        "          $hero_actions",
+        1,
+    )
+    template_text = template_text.replace(
+        """          <div class="hero-actions">
+            <a class="button button-primary" href="$phone_href">Telefonla Ulaşın</a>
+            <a class="button button-secondary" href="$maps_href" rel="noopener">Konumu Görün</a>
+          </div>""",
+        "          $about_actions",
+        1,
+    )
+    template_text = template_text.replace(
+        """          <div class="contact-actions">
+            <a class="button button-primary" href="$whatsapp_href" rel="noopener">WhatsApp</a>
+            <a class="button button-secondary" href="$phone_href">$phone_display</a>
+          </div>""",
+        "          $contact_actions",
+        1,
+    )
+    return template_text.replace(
+        """  <div class="mobile-contact" aria-label="Mobil hızlı iletişim">
+    <a href="$phone_href">Ara</a>
+    <a href="$whatsapp_href" rel="noopener">WhatsApp</a>
+  </div>""",
+        "$mobile_contact",
+        1,
+    )
+
+
+def _resolve_cta_action(
+    label: str,
+    *,
+    role: str,
+    phone_href: str | None,
+    whatsapp_href: str | None,
+    maps_href: str | None,
+) -> tuple[str, str]:
+    normalized = label.casefold()
+    if "whatsapp" in normalized:
+        if whatsapp_href:
+            return label, whatsapp_href
+        return _fallback_contact_action(phone_href, maps_href)
+
+    if any(keyword in normalized for keyword in ("konum", "harita", "adres", "yol tarifi")):
+        if maps_href:
+            return label, maps_href
+        return _fallback_contact_action(phone_href or whatsapp_href, None)
+
+    if any(keyword in normalized for keyword in ("telefon", "ara", "arayın", "görüş")):
+        if phone_href:
+            return label, phone_href
+        if whatsapp_href:
+            return "WhatsApp", whatsapp_href
+        if maps_href:
+            return "Konumu Görün", maps_href
+        return label, "#contact"
+
+    if any(keyword in normalized for keyword in ("iletişim", "ulaş")):
+        if whatsapp_href:
+            return label, whatsapp_href
+        if phone_href:
+            return label, phone_href
+        if maps_href:
+            return "Konumu Görün", maps_href
+        return label, "#contact"
+
+    if role == "secondary" and maps_href:
+        return label, maps_href
+    if whatsapp_href:
+        return label, whatsapp_href
+    if phone_href:
+        return label, phone_href
+    if maps_href:
+        return ("Konumu Görün" if role == "primary" else label), maps_href
+    return label, "#contact"
+
+
+def _fallback_contact_action(
+    phone_href: str | None,
+    maps_href: str | None,
+) -> tuple[str, str]:
+    if phone_href:
+        return "İletişime Geçin", phone_href
+    if maps_href:
+        return "Konumu Görün", maps_href
+    return "İletişim Bilgileri", "#contact"
 
 
 def _render_cta_actions(
@@ -309,16 +365,12 @@ def _render_contact_actions(
     if phone_href:
         links.append(
             _render_action_link(
-                css_class=(
-                    "button button-secondary" if whatsapp_href else "button button-primary"
-                ),
+                css_class="button button-secondary" if whatsapp_href else "button button-primary",
                 href=phone_href,
                 label=phone_display,
             )
         )
-    if not links:
-        return ""
-    return '<div class="contact-actions">' + "".join(links) + "</div>"
+    return '<div class="contact-actions">' + "".join(links) + "</div>" if links else ""
 
 
 def _render_mobile_contact(
@@ -333,10 +385,9 @@ def _render_mobile_contact(
         links.append(_render_plain_link(whatsapp_href, "WhatsApp"))
     if not links:
         return ""
-    columns = len(links)
     return (
         '<div class="mobile-contact" aria-label="Mobil hızlı iletişim" '
-        f'style="grid-template-columns: repeat({columns}, 1fr)">'
+        f'style="grid-template-columns: repeat({len(links)}, 1fr)">'
         + "".join(links)
         + "</div>"
     )
@@ -355,21 +406,11 @@ def _render_plain_link(href: str, label: str) -> str:
     return f'<a href="{escape(href, quote=True)}"{rel}>{escape(label)}</a>'
 
 
-def _first_distinct_href(primary_href: str, *candidates: str | None) -> str | None:
-    return next(
-        (candidate for candidate in candidates if candidate and candidate != primary_href),
-        None,
-    )
-
-
 def _render_service_cards(services: tuple[DemoService, ...]) -> str:
     cards: list[str] = []
     for index, service in enumerate(services, start=1):
         title = _required(service.title, f"services[{index}].title")
-        description = _required(
-            service.description,
-            f"services[{index}].description",
-        )
+        description = _required(service.description, f"services[{index}].description")
         cards.append(
             "<article class=\"service-card\">"
             f"<span class=\"service-index\">{index:02d}</span>"
@@ -412,9 +453,6 @@ def _safe_http_url(value: str | None) -> str | None:
 
 
 def _normalize_unicode(value: str) -> str:
-    # Google data can occasionally contain a decomposed dotted-i sequence such
-    # as ``Gemli\u0307k``. NFC does not collapse that sequence, so normalize it
-    # explicitly after canonical composition.
     return (
         unicodedata.normalize("NFC", value)
         .replace("i\u0307", "i")
