@@ -42,6 +42,18 @@ def test_render_contains_all_m4_1_sections_and_demo_notice() -> None:
     assert "@media (max-width: 640px)" in html
 
 
+def test_internal_hash_navigation_stays_inside_embedded_preview() -> None:
+    html = render_demo_html(_context())
+
+    assert 'href="#services"' in html
+    assert 'href="#about"' in html
+    assert 'href="#contact"' in html
+    assert "data-demo-internal-navigation" in html
+    assert "event.preventDefault();" in html
+    assert "target.scrollIntoView" in html
+    assert "document.getElementById(hash.slice(1))" in html
+
+
 def test_render_builds_phone_whatsapp_and_maps_actions_when_explicitly_available() -> None:
     html = render_demo_html(_context())
 
